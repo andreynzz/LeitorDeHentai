@@ -1,7 +1,7 @@
 {
   "name": "leitor",
   "version": "1.0.0",
-  "description": "Um bot de discord que envia doujins uma vez por hora",
+  "description": "Um bot de discord que envia doujins",
   "main": "index.js",
   "scripts": {
     "main": "node ./index.js",
