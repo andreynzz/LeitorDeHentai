@@ -12,7 +12,7 @@ module.exports = {
 
         return doujin_chosen;
     },
-    async CreateDoEmbed() {
+    async CreateDoEmbed(doujin_chosen) {
         const nhentai_icon = 'https://nhentai.net/static/favicon-32x32.png'
         const m_Embed = new EmbedBuilder()
             .setColor(Colors.Red)
