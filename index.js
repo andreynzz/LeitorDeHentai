@@ -1,6 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
-const { thegreatflood } = require("./modules/Doujin.js");
+const { GetDoujin, CreateDoujinEmbed } = require("./modules/Doujin.js");
 const { Client, Collection, Events, GatewayIntentBits } = require("discord.js");
 const { Keyv } = require("keyv");
 
@@ -20,9 +20,12 @@ client.once(Events.ClientReady, (readyClient) => {
 	for (let i = 0; i < channels_to_flood.length; i++) {
 		const s_channel = readyClient.channels.cache.find(channel => channel.id === channels_to_flood[i]);
 		console.log(`Channel ${s_channel.id} is expecting to be flooded!`)
-		setInterval(() => {
+		setInterval(async () => {
 			console.log("Hentai wave incoming...");
-			thegreatflood(s_channel);
+			const doujin = (await GetDoujin("*"))
+			if(!doujin) { console.log("Hentai wave stoped..."); s_channel.send("Couldn't find anything :("); return;}
+			
+			s_channel.send({embeds: [CreateDoujinEmbed(doujin)]});
 		}, 10 * 1000);
 	}
 })
