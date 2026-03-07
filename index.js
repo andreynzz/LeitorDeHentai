@@ -4,15 +4,18 @@ const { thegreatflood } = require("./flood.js");
 const { Client, Collection, Events, GatewayIntentBits } = require("discord.js");
 const { Keyv } = require("keyv");
 
+// Creates the discord bot client
 const client = new Client({intents:[GatewayIntentBits.Guilds]});
-const { token } = require("./config.json");
 
+// TODO: a shell script that automatically creates the config file 
+const { token, database_path } = require("./config.json");
 
+const keyv = new Keyv(database_path);
 
 client.once(Events.ClientReady, (readyClient) => {
     console.log(`Logged in as ${readyClient.user.tag}!`);
 	const channels_to_flood = [
-
+		"1479631381687566418",
 	];
 	for (let i = 0; i < channels_to_flood.length; i++) {
 		const s_channel = readyClient.channels.cache.find(channel => channel.id === channels_to_flood[i]);
@@ -48,11 +51,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
 		}
 	}
 });
-client.commands = new Collection();
 
+// gets registered commands and sync them to their respective scripts inside the ./commands folder
+client.commands = new Collection();
 const foldersP = path.join(__dirname, 'commands');
 const commandFolders = fs.readdirSync(foldersP);
 
+// looks for every command inside the ./commands folder
 for (const folder of commandFolders) {
     const commandsPath = path.join(foldersP, folder);
     const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith('.js'));
