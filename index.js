@@ -10,26 +10,29 @@ const client = new Client({intents:[GatewayIntentBits.Guilds]});
 // TODO: a shell script that automatically creates the config file 
 const { token, database_path } = require("./config.json");
 
-const keyv = new Keyv(database_path);
+const keyv = new Keyv(`sqlite://${database_path}`);
 
 client.once(Events.ClientReady, (readyClient) => {
     console.log(`Logged in as ${readyClient.user.tag}!`);
-	const channels_to_flood = [
-		"1479631381687566418",
-	];
+	const channels_to_flood = [];
+	console.log("Preparing hentai wave...");
+	for await (const [key, value] of keyv.iterator()){
+		console.log(`Channel ${key} ready!`);
+		channels_to_flood[key] = JSON.parse(value);
+	}
+	console.log("Hentai wave ready...");
 	setInterval(async () => {
 		console.log("Hentai wave incoming...");
 		for (let i = 0; i < channels_to_flood.length; i++) {
 			const s_channel = readyClient.channels.cache.find(channel => channel.id === channels_to_flood[i]);
 			console.log(`Channel ${s_channel.id} is expecting to be flooded!`)
-			
+
 			const doujin = (await GetDoujin("*"))
 			if(!doujin) { console.log("Hentai wave stoped..."); s_channel.send("Couldn't find anything :("); continue;}
 			
 			s_channel.send({embeds: [CreateDoujinEmbed(doujin)]});
 		}
-		
-	}, 10 * 1000);
+	}, 60 * 1000);
 })
 client.on(Events.InteractionCreate, async (interaction) => {
 	if (!interaction.isChatInputCommand()) return; 
