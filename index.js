@@ -14,13 +14,14 @@ const keyv = new Keyv(`sqlite://${database_path}`);
 
 var Intervals = [];
 
-client.once(Events.ClientReady, (readyClient) => {
+client.once(Events.ClientReady, async (readyClient) => {
     console.log(`Logged in as ${readyClient.user.tag}!`);
 	
 	var channels_to_flood = [];
 	console.log("Preparing hentai wave...");
 	
-	for await (const [key, value] of keyv.iterator()){
+	const iti = keyv.iterator()
+	for await (const [key, _] of iti){
 		console.log(`Channel ${key} ready!`);
 		channels_to_flood.push(key);
 	}
@@ -28,7 +29,7 @@ client.once(Events.ClientReady, (readyClient) => {
 
 	for (let i = 0; i < channels_to_flood.length; i++) {
 		async () => {
-			const cooldown = await keyv.get(channels_to_flood[i]);
+			const cooldown = (await keyv.get(channels_to_flood[i]));
 			Intervals[channels_to_flood[i]] = 
 				setInterval(async () => {
 					const s_channel = readyClient.channels.cache.find(channel => channel.id === channels_to_flood[i]);

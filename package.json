@@ -13,6 +13,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@keyv/sqlite": "^4.0.8",
     "discord.js": "^14.25.1",
     "keyv": "^5.6.0",
     "nhentai": "^4.0.0"
