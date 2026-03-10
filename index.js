@@ -3,6 +3,7 @@ const path = require("node:path");
 const { GetDoujin, CreateDoujinEmbed } = require("./modules/Doujin.js");
 const { Client, Collection, Events, GatewayIntentBits } = require("discord.js");
 const { Keyv } = require("keyv");
+const { default: KeyvSqlite } = require("@keyv/sqlite");
 
 // Creates the discord bot client
 const client = new Client({intents:[GatewayIntentBits.Guilds]});
@@ -10,7 +11,9 @@ const client = new Client({intents:[GatewayIntentBits.Guilds]});
 // TODO: a shell script that automatically creates the config file 
 const { token, database_path } = require("./config.json");
 
-const keyv = new Keyv(`sqlite://${database_path}`);
+
+const keyv = new Keyv(new KeyvSqlite(`sqlite://${database_path}`));
+keyv.on('error', (err) => console.error('Keyv connection error:', err));
 
 var Intervals = [];
 

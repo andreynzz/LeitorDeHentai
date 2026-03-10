@@ -1,8 +1,9 @@
 const { SlashCommandBuilder } = require("discord.js");
 const { Keyv, KeyvHooks } = require("keyv");
 const { database_path } = require("./../../config.json");
+const { default: KeyvSqlite } = require("@keyv/sqlite");
 
-const keyv = new Keyv(`sqlite://${database_path}`);
+const keyv = new Keyv(new KeyvSqlite(`sqlite://${database_path}`));
 
 module.exports = {
     data : new SlashCommandBuilder()
