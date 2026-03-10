@@ -14,6 +14,10 @@ module.exports = {
                             .setDescription("canal de texto que vai receber os doujins")
                             .setRequired(true)
             )
+            .addStringOption((option) => option
+                            .setName("tag")
+                            .setDescription("tag do doujin para pesquisar")
+            )
             .addIntegerOption((option) => option
                             .setName("time")
                             .setDescription("tempo, em segundos, entre o envio de cada doujin (min: 10 segundos)")
@@ -23,6 +27,8 @@ module.exports = {
         const channel = await interaction.options.getChannel("channel");
         if (!channel){interaction.reply({content:"Channel doesn't exist or isn't supported",ephemeral:true}); return}
         const time = Math.max(interaction.options.getInteger("time") ?? 10, 10);
+        const tag = interaction.options.getString("tag") ?? "*";
+
 
         await interaction.deferReply()
         
@@ -30,7 +36,7 @@ module.exports = {
             await interaction.editReply({content:`Channel ${channel.name} wasn't added`, ephemeral:true});
             
         }else{
-            await keyv.set(channel.id, JSON.stringify({time}));
+            await keyv.set(channel.id, JSON.stringify({time: time, tag: tag}));
             await interaction.editReply({content:`Channel ${channel.name} changed`, ephemeral:true});
         }
     }
