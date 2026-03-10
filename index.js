@@ -12,26 +12,25 @@ const client = new Client({intents:[GatewayIntentBits.Guilds]});
 const { token, database_path } = require("./config.json");
 
 
-const keyv = new Keyv(new KeyvSqlite(`sqlite://${database_path}`));
+export const keyv = new Keyv(new KeyvSqlite(`sqlite://${database_path}`));
 keyv.on('error', (err) => console.error('Keyv connection error:', err));
 
 var Intervals = [];
 
-keyv.hooks.addListener(KeyvHooks.POST_SET, (data) => {
-	if (Intervals[data.key]) { 
-		clearInterval(Intervals[data.key]);
-		Intervals[data.key] = null
-	}
+function AddChannelToIntervals(data) {
+	console.log(data)
 
+	console.log(`Channel ${data.key} ready!`);
 	// Gets the cooldown for the timeout and the tag for the search
-	const cooldown = JSON.parse(data.value).time ?? 10;
-	const tag = JSON.parse(data.value).tag ?? "*";
+	const data_obj = JSON.parse(data.value)
+	const cooldown = data_obj.time ?? 10;
+	const tag = data_obj.tag ?? "*";
 
 	// Add channel to intervals cooldown
 	Intervals[data.key] = 
 		setInterval(async () => {
 			// Check if channel exists 
-			const s_channel = readyClient.channels.cache.find(channel => channel.id === data.key);
+			const s_channel = client.channels.cache.find(channel => channel.id === data.key);
 			if (!s_channel) {return}
 			console.log(`Channel ${s_channel.id} is expecting to be flooded!`);
 			
@@ -42,12 +41,23 @@ keyv.hooks.addListener(KeyvHooks.POST_SET, (data) => {
 			// Sending the doujin embed to the channel
 			s_channel.send({embeds: [CreateDoujinEmbed(doujin)]});
 		}, cooldown * 1000);
-});
+}
 
-keyv.hooks.addListener(KeyvHooks.POST_DELETE, () => {
+keyv.hooks.addHandler(KeyvHooks.POST_SET, (data) => {
 	if (Intervals[data.key]) { 
 		clearInterval(Intervals[data.key]);
-		Intervals[data.key]
+		Intervals[data.key] = null
+	}
+
+	console.log("Adding to the list...")
+	AddChannelToIntervals(data)
+});
+
+keyv.hooks.addHandler(KeyvHooks.POST_DELETE, () => {
+	if (Intervals[data.key]) { 
+		console.log("Deleting from the list...")
+		clearInterval(Intervals[data.key]);
+		Intervals[data.key] = null;
 	}
 });
 
@@ -58,8 +68,8 @@ client.once(Events.ClientReady, async (readyClient) => {
 	console.log("Preparing hentai wave...");
 	
 	const iti = keyv.iterator()
-	for await (const [key, _] of iti){
-		console.log(`Channel ${key} ready!`);
+	for await (const [key, value] of iti){
+		AddChannelToIntervals({key:key, value:value});
 	}
 	console.log("Hentai wave ready...");
 })

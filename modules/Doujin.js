@@ -18,7 +18,7 @@ module.exports = {
             .setColor(Colors.Red)
             .setTitle(doujin.titles.english)
             .setURL(doujin.url)
-            .setAuthor({ name: doujin.tags.artists.map(value => `${value.name}`).join(", "), iconURL: nhentai_icon, url: 'https://nhentai.net/' })
+            .setAuthor({ name: `${doujin.id} - ${doujin.tags.artists.map(value => `${value.name}`).join(", ")}`, iconURL: nhentai_icon, url: 'https://nhentai.net/' })
             .setDescription(doujin.tags.tags.map(value => `${value.name}`).join(", "))
             .setThumbnail(nhentai_icon)
             .setImage(doujin.cover.url)
