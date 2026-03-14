@@ -20,8 +20,8 @@ module.exports = {
             )
             ,
     async execute(interaction) {
-        const channel = await interaction.options.getChannel("channel");
-        if (!channel){interaction.reply({content:"Channel doesn't exist or isn't supported",ephemeral:true}); return}
+        const channel = interaction.options.getChannel("channel");
+        if (!channel){ await interaction.reply({content:"Channel doesn't exist or isn't supported",ephemeral:true}); return}
         const time = Math.max(interaction.options.getInteger("time") ?? 10, 10);
         const tag = interaction.options.getString("tag") ?? "*";
 
