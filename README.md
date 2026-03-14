@@ -2,6 +2,21 @@
 
 Um bot de Discord que utiliza a API do nhentai para enviar doujins de tempos em tempos
 
+## Estrutura do Projeto
+
+- `index.js`: bootstrap principal do bot
+- `bot/`: infraestrutura de runtime, sessoes, interacoes e onda automatica
+- `commands/`: slash commands separados por dominio
+- `lib/`: utilitarios compartilhados como config, loader de comandos e tempo
+- `modules/`: regras de dominio, persistencia e embeds
+- `test/`: testes basicos de regressao com `node:test`
+
+## Testes
+
+```bash
+npm test
+```
+
 ## 🚀 Como Instalar
 
 Siga os passos abaixo para colocar o bot em funcionamento:

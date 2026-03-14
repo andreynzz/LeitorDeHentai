@@ -6,7 +6,8 @@
   "scripts": {
     "main": "node ./index.js",
     "register": "node ./register-commands.js",
-    "register-guild": "node ./register-commands-guild.js"
+    "register-guild": "node ./register-commands-guild.js",
+    "test": "node --test"
   },
   "keywords": [],
   "author": "Akumu",

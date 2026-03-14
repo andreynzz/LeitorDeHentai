@@ -1,6 +1,7 @@
 const { default: KeyvSqlite } = require("@keyv/sqlite");
 const { default: Keyv } = require("keyv");
-const { database_path } = require("./../config.json")
+const { config } = require("../lib/config");
+
 module.exports = {
-    keyv: new Keyv(new KeyvSqlite(`sqlite://${database_path}`)),
-}
+    keyv: new Keyv(new KeyvSqlite(`sqlite://${config.database_path}`)),
+};

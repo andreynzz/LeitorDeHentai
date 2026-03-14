@@ -1,63 +1,21 @@
 const { Colors, EmbedBuilder } = require("discord.js");
 const { keyv } = require("./Database");
+const { createHourlyWindow } = require("../lib/brasilia-time");
 
 const ROLLS_PREFIX = "rolls:";
 const MAX_ROLLS = 10;
-const BRASILIA_OFFSET_HOURS = -3;
 const ROLL_WINDOW_HOURS = 1;
 
 function getRollsKey(userId) {
     return `${ROLLS_PREFIX}${userId}`;
 }
 
-function getBrasiliaDateParts(date = new Date()) {
-    const formatter = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "America/Sao_Paulo",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hourCycle: "h23",
-    });
-
-    const parts = Object.fromEntries(
-        formatter.formatToParts(date)
-            .filter((part) => part.type !== "literal")
-            .map((part) => [part.type, Number.parseInt(part.value, 10)]),
-    );
-
-    return {
-        year: parts.year,
-        month: parts.month,
-        day: parts.day,
-        hour: parts.hour,
-        minute: parts.minute,
-        second: parts.second,
-    };
-}
-
 function getCurrentRollWindow(date = new Date()) {
-    const parts = getBrasiliaDateParts(date);
-    const slotHour = Math.floor(parts.hour / ROLL_WINDOW_HOURS) * ROLL_WINDOW_HOURS;
-    const nextSlotUtc = Date.UTC(
-        parts.year,
-        parts.month - 1,
-        parts.day,
-        slotHour + ROLL_WINDOW_HOURS - BRASILIA_OFFSET_HOURS,
-        0,
-        0,
-    );
-
-    return {
-        slotKey: `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}:${String(slotHour).padStart(2, "0")}`,
-        resetAt: nextSlotUtc,
-    };
+    return createHourlyWindow(ROLL_WINDOW_HOURS, date);
 }
 
-function getEmptyRollState() {
-    const window = getCurrentRollWindow();
+function createFreshRollState(date = new Date()) {
+    const window = getCurrentRollWindow(date);
     return {
         used: 0,
         slotKey: window.slotKey,
@@ -65,20 +23,16 @@ function getEmptyRollState() {
     };
 }
 
-async function getRollState(userId) {
-    const state = (await keyv.get(getRollsKey(userId))) ?? getEmptyRollState();
-    const window = getCurrentRollWindow();
-    if (state.slotKey !== window.slotKey || state.resetAt <= Date.now()) {
-        const freshState = getEmptyRollState();
-        await keyv.set(getRollsKey(userId), freshState);
-        return freshState;
+function normalizeRollState(state, date = new Date()) {
+    const window = getCurrentRollWindow(date);
+    if (!state || state.slotKey !== window.slotKey || state.resetAt <= date.getTime()) {
+        return createFreshRollState(date);
     }
 
     return state;
 }
 
-async function consumeRoll(userId) {
-    const state = await getRollState(userId);
+function applyRollConsumption(state) {
     if (state.used >= MAX_ROLLS) {
         return {
             allowed: false,
@@ -91,7 +45,6 @@ async function consumeRoll(userId) {
         ...state,
         used: state.used + 1,
     };
-    await keyv.set(getRollsKey(userId), nextState);
 
     return {
         allowed: true,
@@ -100,8 +53,28 @@ async function consumeRoll(userId) {
     };
 }
 
+async function getRollState(userId) {
+    const storedState = await keyv.get(getRollsKey(userId));
+    const state = normalizeRollState(storedState);
+    if (!storedState || storedState.slotKey !== state.slotKey || storedState.resetAt !== state.resetAt || storedState.used !== state.used) {
+        await keyv.set(getRollsKey(userId), state);
+    }
+
+    return state;
+}
+
+async function consumeRoll(userId) {
+    const state = await getRollState(userId);
+    const result = applyRollConsumption(state);
+    if (result.allowed) {
+        await keyv.set(getRollsKey(userId), result.state);
+    }
+
+    return result;
+}
+
 async function resetRolls(userId) {
-    const freshState = getEmptyRollState();
+    const freshState = createFreshRollState();
     await keyv.set(getRollsKey(userId), freshState);
     return {
         ...freshState,
@@ -133,10 +106,13 @@ function createRollStatusText(remaining) {
 
 module.exports = {
     MAX_ROLLS,
+    applyRollConsumption,
     consumeRoll,
+    createFreshRollState,
     createRollLimitEmbed,
     createRollStatusText,
     getCurrentRollWindow,
     getRollState,
+    normalizeRollState,
     resetRolls,
 };
