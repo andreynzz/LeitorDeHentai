@@ -1,13 +1,28 @@
 const { SlashCommandBuilder } = require("discord.js");
 const { keyv } = require("./../../modules/Database")
+const { deleteWaveValue, getWaveValue } = require("./../../modules/Wave");
 
 module.exports = {
     data : new SlashCommandBuilder()
             .setName('removechannel')
+            .setNameLocalizations({
+                            "pt-BR": "removercanal",
+            })
             .setDescription('remove um canal de texto ')
+            .setDescriptionLocalizations({
+                            "pt-BR": "remove um canal de texto",
+                            "en-US": "removes a text channel",
+            })
             .addChannelOption((option) => option
                             .setName("channel")
+                            .setNameLocalizations({
+                                            "pt-BR": "canal",
+                            })
                             .setDescription("canal de texto que vai receber os doujins")
+                            .setDescriptionLocalizations({
+                                            "pt-BR": "canal de texto que vai receber os doujins",
+                                            "en-US": "text channel that will receive doujins",
+                            })
                             .setRequired(true)
             )
             ,
@@ -17,11 +32,11 @@ module.exports = {
         
         await interaction.deferReply()
         
-        if (await keyv.get(channel.id) === undefined) {
+        if (await getWaveValue(keyv, channel.id) === undefined) {
             await interaction.editReply({content:`Channel ${channel.name} wasn't added`, ephemeral:true});
             
         }else{
-            await keyv.delete(channel.id);
+            await deleteWaveValue(keyv, channel.id);
             await interaction.editReply({content:`Channel ${channel.name} removed`, ephemeral:true});
         }
     }

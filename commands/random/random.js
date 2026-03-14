@@ -4,10 +4,21 @@ const { SlashCommandBuilder } = require("discord.js")
 module.exports = {
     data : new SlashCommandBuilder()
             .setName('random')
+            .setNameLocalizations({
+                            "pt-BR": "aleatorio",
+            })
             .setDescription('busca um doujin aleatorio')
+            .setDescriptionLocalizations({
+                            "pt-BR": "busca um doujin aleatorio",
+                            "en-US": "fetches a random doujin",
+            })
             .addStringOption((option) => option
                             .setName("tag")
                             .setDescription("tag do doujin para pesquisar")
+                            .setDescriptionLocalizations({
+                                            "pt-BR": "tag do doujin para pesquisar",
+                                            "en-US": "doujin tag to search for",
+                            })
             ),
     async execute(interaction) {
         const tag = interaction.options.getString("tag") ?? "*";
