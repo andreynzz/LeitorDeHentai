@@ -1,5 +1,5 @@
 const path = require("node:path");
-const { Client, Events, GatewayIntentBits } = require("discord.js");
+const { Client, Events, GatewayIntentBits, Partials } = require("discord.js");
 const { config } = require("./lib/config");
 const { loadCommandModules } = require("./lib/command-loader");
 const { keyv } = require("./modules/Database");
@@ -9,7 +9,17 @@ const { createBotSessions } = require("./bot/sessions");
 const { attachCommands, createInteractionManager } = require("./bot/interactions");
 const { createWaveManager } = require("./bot/wave-manager");
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessageReactions,
+    ],
+    partials: [
+        Partials.Channel,
+        Partials.Message,
+        Partials.Reaction,
+    ],
+});
 const sessions = createBotSessions();
 
 keyv.on("error", (error) => console.error("Keyv connection error:", error));

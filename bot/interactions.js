@@ -22,6 +22,14 @@ const {
     createCharacterSearchCarouselActionRow,
     createCharacterSearchEmbed,
 } = require("../modules/Search");
+const {
+    createHelperClaimedEmbed,
+    createHelperExpiredEmbed,
+    HELPER_DROP_DURATION_SECONDS,
+    HELPER_REACTION_EMOJI,
+    recordHelperCollection,
+} = require("../modules/Helper");
+const { addCoins } = require("../modules/Market");
 
 function createInteractionManager(client, sessions) {
     function registerCharacterClaim(message, characterId) {
@@ -58,6 +66,10 @@ function createInteractionManager(client, sessions) {
             registerCharacterClaim(result.message, result.claimCharacterId);
         }
 
+        if (result?.helperDrop?.message && result?.helperDrop?.reward) {
+            registerHelperDrop(result.helperDrop.message, result.helperDrop.reward);
+        }
+
         if (result?.haremCarousel?.message && result?.haremCarousel?.ownerId) {
             sessions.haremCarousels.set(result.haremCarousel.message.id, {
                 ownerId: result.haremCarousel.ownerId,
@@ -72,6 +84,37 @@ function createInteractionManager(client, sessions) {
                 characterImageCarousel: result.imCarousel.characterImageCarousel,
             });
         }
+    }
+
+    function registerHelperDrop(message, reward) {
+        const expiresAt = Date.now() + (HELPER_DROP_DURATION_SECONDS * 1000);
+        const timeout = setTimeout(async () => {
+            const currentDrop = sessions.helperDrops.get(message.id);
+            if (!currentDrop || currentDrop.expiresAt !== expiresAt || currentDrop.claimedBy) {
+                return;
+            }
+
+            sessions.helperDrops.delete(message.id);
+            try {
+                const currentEmbed = message.embeds[0];
+                await message.edit({
+                    embeds: currentEmbed ? [createHelperExpiredEmbed(currentEmbed)] : [],
+                });
+            } catch (error) {
+                console.error("Failed to expire helper drop:", error);
+            }
+        }, HELPER_DROP_DURATION_SECONDS * 1000);
+
+        sessions.helperDrops.set(message.id, {
+            claimedBy: null,
+            expiresAt,
+            reward,
+            timeout,
+        });
+
+        message.react(HELPER_REACTION_EMOJI).catch((error) => {
+            console.error("Failed to react to helper drop message:", error);
+        });
     }
 
     async function handleHaremCarouselInteraction(interaction) {
@@ -232,6 +275,56 @@ function createInteractionManager(client, sessions) {
         return true;
     }
 
+    async function handleHelperReaction(reaction, user) {
+        if (user.bot || reaction.emoji.name !== HELPER_REACTION_EMOJI) {
+            return false;
+        }
+
+        if (reaction.partial) {
+            await reaction.fetch();
+        }
+
+        if (reaction.message?.partial) {
+            await reaction.message.fetch();
+        }
+
+        const helperDrop = sessions.helperDrops.get(reaction.message.id);
+        if (!helperDrop) {
+            return false;
+        }
+
+        if (helperDrop.expiresAt <= Date.now()) {
+            clearTimeout(helperDrop.timeout);
+            sessions.helperDrops.delete(reaction.message.id);
+            const currentEmbed = reaction.message.embeds[0];
+            await reaction.message.edit({
+                embeds: currentEmbed ? [createHelperExpiredEmbed(currentEmbed)] : [],
+            });
+            return true;
+        }
+
+        if (helperDrop.claimedBy) {
+            return true;
+        }
+
+        helperDrop.claimedBy = user.id;
+        clearTimeout(helperDrop.timeout);
+
+        const balance = await addCoins(user.id, helperDrop.reward);
+        await recordHelperCollection(user.id, helperDrop.reward);
+        sessions.helperDrops.delete(reaction.message.id);
+
+        await reaction.message.edit({
+            embeds: [createHelperClaimedEmbed(reaction.message.embeds[0], {
+                user,
+                reward: helperDrop.reward,
+                balance,
+            })],
+        });
+
+        return true;
+    }
+
     async function handleButtonInteraction(interaction) {
         if (interaction.customId.startsWith(IM_CAROUSEL_PREFIX)) {
             return handleImCarouselInteraction(interaction);
@@ -270,6 +363,14 @@ function createInteractionManager(client, sessions) {
                 if (interaction.isChatInputCommand()) {
                     await handleCommandInteraction(interaction);
                 }
+            } catch (error) {
+                console.error(error);
+            }
+        });
+
+        client.on(Events.MessageReactionAdd, async (reaction, user) => {
+            try {
+                await handleHelperReaction(reaction, user);
             } catch (error) {
                 console.error(error);
             }

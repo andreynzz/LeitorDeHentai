@@ -1,6 +1,7 @@
 function createBotSessions() {
     return {
         characterClaims: new Map(),
+        helperDrops: new Map(),
         haremCarousels: new Map(),
         imCarousels: new Map(),
         infamyResetInterval: null,

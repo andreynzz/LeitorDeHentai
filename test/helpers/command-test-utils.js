@@ -7,6 +7,7 @@ function resolveFromProject(modulePath) {
 function createFakeInteraction({
     user = { id: "user-1", username: "Tester", toString: () => "<@user-1>" },
     options = {},
+    commands = new Map(),
 } = {}) {
     const calls = {
         reply: [],
@@ -16,8 +17,14 @@ function createFakeInteraction({
 
     return {
         user,
+        client: {
+            commands,
+        },
         options: {
             getString(name) {
+                return options[name] ?? null;
+            },
+            getUser(name) {
                 return options[name] ?? null;
             },
         },

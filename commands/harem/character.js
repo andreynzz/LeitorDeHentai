@@ -4,7 +4,15 @@ const {
     createClaimActionRow,
     getRandomCharacter,
 } = require("../../modules/Character");
-const { registerCharacterFromDrop } = require("../../modules/Market");
+const {
+    getCharacterById,
+    registerCharacterFromDrop,
+} = require("../../modules/Market");
+const {
+    calculateHelperReward,
+    createHelperDropEmbed,
+    shouldSpawnHelper,
+} = require("../../modules/Helper");
 const { consumeRoll, createRollLimitEmbed, createRollStatusText } = require("../../modules/Rolls");
 const { isLikelyCharacterQuery } = require("../../modules/Search");
 const { createWishAlertContent, getWishMatches } = require("../../modules/Wish");
@@ -54,13 +62,36 @@ module.exports = {
 
         await interaction.deferReply();
 
-        const result = await getRandomCharacter(tag);
+        let result = null;
+        let helperReward = null;
+
+        for (let attempt = 0; attempt < 15; attempt += 1) {
+            const candidate = await getRandomCharacter(tag, { includeClaimed: true });
+            if (!candidate) {
+                break;
+            }
+
+            await registerCharacterFromDrop(candidate);
+
+            if (!candidate.alreadyClaimed) {
+                result = candidate;
+                break;
+            }
+
+            if (!shouldSpawnHelper()) {
+                continue;
+            }
+
+            const marketCharacter = await getCharacterById(candidate.character.id);
+            result = candidate;
+            helperReward = calculateHelperReward(marketCharacter ?? candidate.character, candidate.ownerCount);
+            break;
+        }
+
         if (!result) {
             await interaction.editReply("Não encontrei personagens com essa tag.");
             return;
         }
-
-        await registerCharacterFromDrop(result);
 
         const wishMatches = await getWishMatches(result.character.id);
         const headerLines = [];
@@ -69,6 +100,25 @@ module.exports = {
             headerLines.push(wishAlert);
         }
         headerLines.push(createRollStatusText(rollResult.remaining));
+
+        if (helperReward !== null) {
+            const message = await interaction.editReply({
+                content: [...headerLines, `💎 Helper disponivel: reaja na mensagem para coletar **${helperReward} moedas**.`].join("\n"),
+                embeds: [createHelperDropEmbed(createCharacterEmbed(result), {
+                    reward: helperReward,
+                    ownerCount: result.ownerCount,
+                })],
+                components: [],
+            });
+
+            return {
+                helperDrop: {
+                    characterId: result.character.id,
+                    message,
+                    reward: helperReward,
+                },
+            };
+        }
 
         const message = await interaction.editReply({
             content: headerLines.join("\n"),

@@ -1,6 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, Colors, EmbedBuilder } = require("discord.js");
 const { GetDoujin } = require("./Doujin");
-const { createCharacterEntry, isCharacterClaimed } = require("./Harem");
+const { countOwnersForCharacter, createCharacterEntry } = require("./Harem");
 
 const CLAIM_CHARACTER_PREFIX = "claim_character:";
 const CLAIM_DURATION_SECONDS = 10;
@@ -9,7 +9,7 @@ function getCharacterNames(doujin) {
     return doujin?.tags?.characters?.map((value) => value.name).filter(Boolean) ?? [];
 }
 
-async function getRandomCharacter(tag = "*") {
+async function getRandomCharacter(tag = "*", { includeClaimed = false } = {}) {
     const seenIds = new Set();
     for (let attempt = 0; attempt < 30; attempt += 1) {
         const doujin = await GetDoujin(tag);
@@ -30,14 +30,18 @@ async function getRandomCharacter(tag = "*") {
             }
 
             seenIds.add(character.id);
-            if (await isCharacterClaimed(character.id)) {
+            const ownerCount = await countOwnersForCharacter(character.id);
+            const alreadyClaimed = ownerCount > 0;
+            if (alreadyClaimed && !includeClaimed) {
                 continue;
             }
 
             return {
+                alreadyClaimed,
                 doujin,
                 character,
                 characters,
+                ownerCount,
             };
         }
     }

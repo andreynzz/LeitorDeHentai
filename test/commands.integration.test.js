@@ -26,6 +26,7 @@ test("character command blocks character names used as tags", async () => {
 test("character command returns claim payload on successful drop", async () => {
     const restoreCharacter = mockModuleExports("./modules/Character.js", {
         getRandomCharacter: async () => ({
+            alreadyClaimed: false,
             character: { id: "rias-gremory", name: "Rias Gremory" },
             doujin: { id: 1 },
         }),
@@ -33,7 +34,13 @@ test("character command returns claim payload on successful drop", async () => {
         createClaimActionRow: (id) => ({ mock: "claim-row", id }),
     });
     const restoreMarket = mockModuleExports("./modules/Market.js", {
+        getCharacterById: async () => ({ claimValue: 40, rarityMultiplier: 1.4 }),
         registerCharacterFromDrop: async () => {},
+    });
+    const restoreHelper = mockModuleExports("./modules/Helper.js", {
+        calculateHelperReward: () => 20,
+        createHelperDropEmbed: () => ({ mock: "helper-embed" }),
+        shouldSpawnHelper: () => false,
     });
     const restoreRolls = mockModuleExports("./modules/Rolls.js", {
         consumeRoll: async () => ({ allowed: true, remaining: 9, state: { used: 1 } }),
@@ -62,6 +69,56 @@ test("character command returns claim payload on successful drop", async () => {
     restoreWish();
     restoreSearch();
     restoreRolls();
+    restoreHelper();
+    restoreMarket();
+    restoreCharacter();
+});
+
+test("character command can turn an owned roll into a helper drop", async () => {
+    const restoreCharacter = mockModuleExports("./modules/Character.js", {
+        getRandomCharacter: async () => ({
+            alreadyClaimed: true,
+            ownerCount: 2,
+            character: { id: "rias-gremory", name: "Rias Gremory" },
+            doujin: { id: 1 },
+        }),
+        createCharacterEmbed: () => ({ mock: "character-embed" }),
+    });
+    const restoreMarket = mockModuleExports("./modules/Market.js", {
+        getCharacterById: async () => ({ claimValue: 40, rarityMultiplier: 1.4 }),
+        registerCharacterFromDrop: async () => {},
+    });
+    const restoreHelper = mockModuleExports("./modules/Helper.js", {
+        calculateHelperReward: () => 33,
+        createHelperDropEmbed: () => ({ mock: "helper-embed" }),
+        shouldSpawnHelper: () => true,
+    });
+    const restoreRolls = mockModuleExports("./modules/Rolls.js", {
+        consumeRoll: async () => ({ allowed: true, remaining: 8, state: { used: 2 } }),
+        createRollStatusText: (remaining) => `Rolls restantes: ${remaining}`,
+    });
+    const restoreSearch = mockModuleExports("./modules/Search.js", {
+        isLikelyCharacterQuery: async () => false,
+    });
+    const restoreWish = mockModuleExports("./modules/Wish.js", {
+        getWishMatches: async () => [],
+        createWishAlertContent: () => null,
+    });
+
+    const command = requireFresh("./commands/harem/character.js");
+    const interaction = createFakeInteraction();
+
+    const result = await command.execute(interaction);
+
+    assert.equal(interaction.calls.editReply.length, 1);
+    assert.match(interaction.calls.editReply[0].content, /Helper disponivel/);
+    assert.equal(interaction.calls.editReply[0].embeds[0].mock, "helper-embed");
+    assert.equal(result.helperDrop.reward, 33);
+
+    restoreWish();
+    restoreSearch();
+    restoreRolls();
+    restoreHelper();
     restoreMarket();
     restoreCharacter();
 });
