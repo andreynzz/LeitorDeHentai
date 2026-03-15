@@ -1,5 +1,9 @@
-const { GetDoujin, CreateDoujinEmbed } = require("../../modules/Doujin")
-const { SlashCommandBuilder } = require("discord.js")
+const { GetDoujin } = require("../../modules/Doujin");
+const {
+    createDoujinClaimActionRow,
+    createRolledDoujinEmbed,
+} = require("../../modules/DoujinCollectionClaim");
+const { SlashCommandBuilder } = require("discord.js");
 
 module.exports = {
     data : new SlashCommandBuilder()
@@ -23,14 +27,23 @@ module.exports = {
     async execute(interaction) {
         const tag = interaction.options.getString("tag") ?? "*";
 
-        //Gets a random doujin with the given tag
         const chosen = await GetDoujin(tag);
-        if (!chosen) { await interaction.reply("There was an error trying to find a Doujin with this tag"); return; }
+        if (!chosen) {
+            await interaction.reply("There was an error trying to find a Doujin with this tag");
+            return;
+        }
 
-        //Creates an embed
-        const m_Embed = CreateDoujinEmbed(chosen);
+        const message = await interaction.reply({
+            embeds: [createRolledDoujinEmbed(chosen)],
+            components: [createDoujinClaimActionRow(chosen.id)],
+            fetchReply: true,
+        });
 
-        //And finally send it to the user!
-        await interaction.reply({embeds: [m_Embed]});
+        return {
+            doujinClaim: {
+                message,
+                doujin: chosen,
+            },
+        };
     }
-}
+};

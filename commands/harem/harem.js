@@ -5,6 +5,12 @@ const {
     createHaremEmbed,
     getHarem,
 } = require("../../modules/Harem");
+const {
+    createDoujinCollectionActionRow,
+    createDoujinCollectionCarouselEmbed,
+    createDoujinCollectionEmbed,
+    getDoujinCollection,
+} = require("../../modules/DoujinCollection");
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -34,11 +40,50 @@ module.exports = {
             .addChoices(
                 { name: "Lista", value: "list" },
                 { name: "Carrossel", value: "carousel" },
+            ))
+        .addStringOption((option) => option
+            .setName("colecao")
+            .setDescription("qual colecao voce quer abrir")
+            .setDescriptionLocalizations({
+                "pt-BR": "qual colecao voce quer abrir",
+                "en-US": "which collection to open",
+            })
+            .addChoices(
+                { name: "Personagens", value: "characters" },
+                { name: "Doujins", value: "doujins" },
             )),
     async execute(interaction) {
         const targetUser = interaction.options.getUser("usuario") ?? interaction.user;
-        const harem = await getHarem(targetUser.id);
         const view = interaction.options.getString("view") ?? "list";
+        const collectionType = interaction.options.getString("colecao") ?? "characters";
+
+        if (collectionType === "doujins") {
+            const collection = await getDoujinCollection(targetUser.id);
+
+            if (view === "carousel") {
+                const message = await interaction.reply({
+                    embeds: [createDoujinCollectionCarouselEmbed(targetUser, collection, 0)],
+                    components: [createDoujinCollectionActionRow(0, collection.doujins.length)],
+                    fetchReply: true,
+                });
+
+                return {
+                    haremCarousel: {
+                        message,
+                        ownerId: interaction.user.id,
+                        targetUser,
+                        collectionType,
+                    },
+                };
+            }
+
+            await interaction.reply({
+                embeds: [createDoujinCollectionEmbed(targetUser, collection)],
+            });
+            return;
+        }
+
+        const harem = await getHarem(targetUser.id);
 
         if (view === "carousel") {
             const message = await interaction.reply({
@@ -52,6 +97,7 @@ module.exports = {
                     message,
                     ownerId: interaction.user.id,
                     targetUser,
+                    collectionType,
                 },
             };
         }

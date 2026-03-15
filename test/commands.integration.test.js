@@ -204,13 +204,21 @@ test("harem command supports list and carousel views", async () => {
         createHaremCarouselEmbed: () => ({ mock: "carousel-embed" }),
         createHaremCarouselActionRow: () => ({ mock: "carousel-row" }),
     });
+    const restoreDoujins = mockModuleExports("./modules/DoujinCollection.js", {
+        getDoujinCollection: async () => ({ doujins: [{ id: "1", title: "Test Doujin" }] }),
+        createDoujinCollectionEmbed: () => ({ mock: "doujin-list-embed" }),
+        createDoujinCollectionCarouselEmbed: () => ({ mock: "doujin-carousel-embed" }),
+        createDoujinCollectionActionRow: () => ({ mock: "doujin-carousel-row" }),
+    });
 
     const command = requireFresh("./commands/harem/harem.js");
     const listInteraction = createFakeInteraction({ options: { view: "list" } });
     const carouselInteraction = createFakeInteraction({ options: { view: "carousel" } });
+    const doujinInteraction = createFakeInteraction({ options: { colecao: "doujins" } });
 
     const listResult = await command.execute(listInteraction);
     const carouselResult = await command.execute(carouselInteraction);
+    const doujinResult = await command.execute(doujinInteraction);
 
     assert.equal(listResult, undefined);
     assert.equal(listInteraction.calls.reply[0].embeds[0].mock, "list-embed");
@@ -218,8 +226,44 @@ test("harem command supports list and carousel views", async () => {
     assert.equal(carouselResult.haremCarousel.ownerId, "user-1");
     assert.equal(carouselResult.haremCarousel.targetUser.id, "user-1");
     assert.equal(carouselResult.haremCarousel.message.id, "message-1");
+    assert.equal(doujinResult, undefined);
+    assert.equal(doujinInteraction.calls.reply[0].embeds[0].mock, "doujin-list-embed");
 
+    restoreDoujins();
     restoreHarem();
+});
+
+test("random command returns a doujin claim payload", async () => {
+    const restoreDoujin = mockModuleExports("./modules/Doujin.js", {
+        GetDoujin: async () => ({
+            id: 123,
+            titles: { english: "Test Doujin" },
+            url: "https://example.com/d/123",
+            cover: { url: "https://example.com/cover.jpg" },
+            favorites: 45,
+            tags: {
+                artists: [{ name: "Artist" }],
+                tags: [{ name: "tag1" }],
+            },
+        }),
+    });
+    const restoreClaim = mockModuleExports("./modules/DoujinCollectionClaim.js", {
+        createDoujinClaimActionRow: () => ({ mock: "doujin-claim-row" }),
+        createRolledDoujinEmbed: () => ({ mock: "rolled-doujin-embed" }),
+    });
+
+    const command = requireFresh("./commands/random/random.js");
+    const interaction = createFakeInteraction();
+
+    const result = await command.execute(interaction);
+
+    assert.equal(interaction.calls.reply.length, 1);
+    assert.equal(interaction.calls.reply[0].fetchReply, true);
+    assert.equal(interaction.calls.reply[0].embeds[0].mock, "rolled-doujin-embed");
+    assert.equal(result.doujinClaim.doujin.id, 123);
+
+    restoreClaim();
+    restoreDoujin();
 });
 
 test("adminrank command applies a manual rank adjustment", async () => {

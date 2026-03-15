@@ -15,6 +15,22 @@ const {
     getHarem,
     isCharacterClaimed,
 } = require("../modules/Harem");
+const {
+    addDoujinToCollection,
+    buildDoujinEntry,
+    createDoujinCollectionActionRow,
+    createDoujinCollectionCarouselEmbed,
+    getDoujinCollection,
+    isDoujinClaimed,
+} = require("../modules/DoujinCollection");
+const {
+    CLAIM_DOUJIN_PREFIX,
+    DOUJIN_CLAIM_DURATION_SECONDS,
+    createDisabledDoujinClaimActionRow,
+    createDoujinClaimExpiredEmbed,
+    createDoujinClaimResultEmbed,
+    createDoujinClaimUnavailableEmbed,
+} = require("../modules/DoujinCollectionClaim");
 const { canUserMarry, createMarriageCooldownEmbed, registerMarriage } = require("../modules/Marriage");
 const {
     buildImageAttachment,
@@ -61,9 +77,42 @@ function createInteractionManager(client, sessions) {
         });
     }
 
+    function registerDoujinClaim(message, doujin) {
+        const expiresAt = Date.now() + (DOUJIN_CLAIM_DURATION_SECONDS * 1000);
+        const timeout = setTimeout(async () => {
+            const currentClaim = sessions.doujinClaims.get(message.id);
+            if (!currentClaim || currentClaim.expiresAt !== expiresAt || currentClaim.claimedBy) {
+                return;
+            }
+
+            sessions.doujinClaims.delete(message.id);
+            try {
+                const currentEmbed = message.embeds[0];
+                await message.edit({
+                    embeds: currentEmbed ? [createDoujinClaimExpiredEmbed(currentEmbed)] : [],
+                    components: [createDisabledDoujinClaimActionRow(doujin.id, "Tempo expirado")],
+                });
+            } catch (error) {
+                console.error("Failed to expire doujin claim:", error);
+            }
+        }, DOUJIN_CLAIM_DURATION_SECONDS * 1000);
+
+        sessions.doujinClaims.set(message.id, {
+            doujin,
+            doujinId: String(doujin.id),
+            expiresAt,
+            timeout,
+            claimedBy: null,
+        });
+    }
+
     function registerCommandResult(result) {
         if (result?.claimCharacter && result?.message) {
             registerCharacterClaim(result.message, result.claimCharacter);
+        }
+
+        if (result?.doujinClaim?.message && result?.doujinClaim?.doujin) {
+            registerDoujinClaim(result.doujinClaim.message, result.doujinClaim.doujin);
         }
 
         if (result?.helperDrop?.message && result?.helperDrop?.reward && result?.helperDrop?.variant) {
@@ -74,6 +123,7 @@ function createInteractionManager(client, sessions) {
             sessions.haremCarousels.set(result.haremCarousel.message.id, {
                 targetUser: result.haremCarousel.targetUser,
                 viewerId: result.haremCarousel.ownerId,
+                collectionType: result.haremCarousel.collectionType ?? "characters",
             });
         }
 
@@ -134,10 +184,20 @@ function createInteractionManager(client, sessions) {
         }
 
         const [, , rawIndex] = interaction.customId.split(":");
-        const harem = await getHarem(session.targetUser.id);
         const index = Number.parseInt(rawIndex, 10);
-        const safeIndex = Number.isNaN(index) ? 0 : Math.min(Math.max(index, 0), Math.max(harem.characters.length - 1, 0));
+        if (session.collectionType === "doujins") {
+            const collection = await getDoujinCollection(session.targetUser.id);
+            const safeIndex = Number.isNaN(index) ? 0 : Math.min(Math.max(index, 0), Math.max(collection.doujins.length - 1, 0));
 
+            await interaction.update({
+                embeds: [createDoujinCollectionCarouselEmbed(session.targetUser, collection, safeIndex)],
+                components: [createDoujinCollectionActionRow(safeIndex, collection.doujins.length)],
+            });
+            return true;
+        }
+
+        const harem = await getHarem(session.targetUser.id);
+        const safeIndex = Number.isNaN(index) ? 0 : Math.min(Math.max(index, 0), Math.max(harem.characters.length - 1, 0));
         await interaction.update({
             embeds: [createHaremCarouselEmbed(session.targetUser, harem, safeIndex)],
             components: [createHaremCarouselActionRow(safeIndex, harem.characters.length)],
@@ -277,6 +337,67 @@ function createInteractionManager(client, sessions) {
         return true;
     }
 
+    async function lockDoujinClaim(interaction, doujinId) {
+        const claim = sessions.doujinClaims.get(interaction.message.id);
+        if (!claim || claim.doujinId !== doujinId) {
+            await interaction.reply({
+                embeds: [createDoujinClaimUnavailableEmbed(interaction.message.embeds[0]).setDescription("Esse doujin nao esta mais disponivel para captura.")],
+            });
+            return null;
+        }
+
+        if (claim.expiresAt <= Date.now()) {
+            clearTimeout(claim.timeout);
+            sessions.doujinClaims.delete(interaction.message.id);
+            const currentEmbed = interaction.message.embeds[0];
+            await interaction.update({
+                embeds: currentEmbed ? [createDoujinClaimExpiredEmbed(currentEmbed)] : [],
+                components: [createDisabledDoujinClaimActionRow(doujinId, "Tempo expirado")],
+            });
+            return null;
+        }
+
+        if (claim.claimedBy) {
+            await interaction.reply({
+                embeds: [createDoujinClaimUnavailableEmbed(interaction.message.embeds[0]).setDescription("Esse doujin ja foi capturado por outra pessoa.")],
+            });
+            return null;
+        }
+
+        claim.claimedBy = interaction.user.id;
+        clearTimeout(claim.timeout);
+        return claim;
+    }
+
+    async function handleDoujinClaim(interaction) {
+        const doujinId = interaction.customId.slice(CLAIM_DOUJIN_PREFIX.length);
+
+        if (await isDoujinClaimed(doujinId)) {
+            await interaction.reply({
+                embeds: [createDoujinClaimUnavailableEmbed(interaction.message.embeds[0]).setDescription("Esse doujin ja pertence a colecao de alguem e nao pode ser capturado novamente.")],
+            });
+            return true;
+        }
+
+        const claim = await lockDoujinClaim(interaction, doujinId);
+        if (!claim) {
+            return true;
+        }
+
+        const result = await addDoujinToCollection(interaction.user.id, buildDoujinEntry(claim.doujin));
+        sessions.doujinClaims.delete(interaction.message.id);
+
+        await interaction.update({
+            embeds: [createDoujinClaimResultEmbed({
+                doujin: result.doujin,
+                user: interaction.user,
+                alreadyOwned: !result.added,
+            })],
+            components: [createDisabledDoujinClaimActionRow(doujinId, "Doujin capturado")],
+        });
+        return true;
+    }
+
     async function handleHelperReaction(reaction, user) {
         if (user.bot) {
             return false;
@@ -343,6 +464,10 @@ function createInteractionManager(client, sessions) {
 
         if (interaction.customId.startsWith(CLAIM_CHARACTER_PREFIX)) {
             return handleCharacterClaim(interaction);
+        }
+
+        if (interaction.customId.startsWith(CLAIM_DOUJIN_PREFIX)) {
+            return handleDoujinClaim(interaction);
         }
 
         return false;
