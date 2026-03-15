@@ -55,20 +55,21 @@ function createCharacterEmbed(result) {
     const relatedCharacters = characters.filter((name) => name !== character.name).slice(0, 5);
     const embed = new EmbedBuilder()
         .setColor(Colors.Gold)
+        .setAuthor({ name: "Character Roll", url: doujin.url })
         .setTitle(character.name)
         .setURL(doujin.url)
-        .setDescription(`Origem: **${sourceTitle}**\nID para favorito: \`${character.id}\``)
+        .setDescription(`**${sourceTitle}**`)
         .addFields(
-            { name: "Doujin", value: `[${sourceTitle}](${doujin.url})`, inline: false },
-            { name: "Claim", value: `A primeira pessoa tem ${CLAIM_DURATION_SECONDS}s para capturar.`, inline: false },
+            { name: "Claim", value: `${CLAIM_DURATION_SECONDS}s para capturar`, inline: true },
+            { name: "ID", value: `\`${character.id}\``, inline: true },
             {
-                name: "Outros personagens",
-                value: relatedCharacters.length > 0 ? relatedCharacters.join(", ") : "Nenhum outro personagem listado",
+                name: "Elenco",
+                value: relatedCharacters.length > 0 ? relatedCharacters.join(" • ") : "Sem outros personagens listados",
                 inline: false,
             },
         )
         .setImage(doujin.cover.url)
-        .setFooter({ text: `Fonte #${doujin.id}` })
+        .setFooter({ text: `#${doujin.id} • Toque no botao para capturar` })
         .setTimestamp();
 
     return embed;
@@ -100,20 +101,19 @@ function createClaimWindowText(seconds = CLAIM_DURATION_SECONDS) {
 function createClaimResultEmbed({ character, user, alreadyOwned = false }) {
     return new EmbedBuilder()
         .setColor(alreadyOwned ? Colors.Orange : Colors.Green)
-        .setAuthor({ name: alreadyOwned ? "Claim processado" : "Personagem capturado" })
+        .setAuthor({ name: alreadyOwned ? "Claim processado" : "Claim bem-sucedido" })
         .setTitle(character.name)
         .setURL(character.sourceUrl)
         .setDescription(
             alreadyOwned
-                ? `${user} clicou primeiro e manteve este personagem no proprio harem.`
-                : `${user} capturou este personagem para o proprio harem.`,
+                ? `${user} clicou primeiro e manteve esse personagem no proprio harem.`
+                : `${user} adicionou esse personagem ao proprio harem.`,
         )
         .addFields(
-            { name: "Origem", value: `[${character.sourceTitle}](${character.sourceUrl})`, inline: true },
-            { name: "ID", value: `\`${character.id}\``, inline: true },
+            { name: "Origem", value: `[${character.sourceTitle}](${character.sourceUrl})`, inline: false },
         )
         .setImage(character.imageUrl)
-        .setFooter({ text: "Claim encerrado" })
+        .setFooter({ text: `ID ${character.id}` })
         .setTimestamp();
 }
 

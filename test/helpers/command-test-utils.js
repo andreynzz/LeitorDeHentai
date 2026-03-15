@@ -24,6 +24,9 @@ function createFakeInteraction({
             getString(name) {
                 return options[name] ?? null;
             },
+            getInteger(name) {
+                return options[name] ?? null;
+            },
             getUser(name) {
                 return options[name] ?? null;
             },

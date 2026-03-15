@@ -97,16 +97,16 @@ module.exports = {
         }
 
         const wishMatches = await getWishMatches(result.character.id);
-        const headerLines = [];
+        const headerBits = [];
         const wishAlert = createWishAlertContent(result.character.name, wishMatches);
         if (wishAlert) {
-            headerLines.push(wishAlert);
+            headerBits.push(wishAlert);
         }
-        headerLines.push(createRollStatusText(rollResult.remaining));
+        headerBits.push(`🎲 ${createRollStatusText(rollResult.remaining)}`);
 
         if (helperReward !== null) {
             const message = await interaction.editReply({
-                content: [...headerLines, `${helperVariant.emoji} ${helperVariant.name} disponivel: reaja na mensagem para coletar **${helperReward} moedas**.`].join("\n"),
+                content: [...headerBits, `${helperVariant.emoji} ${helperVariant.name}: reaja para coletar **${helperReward} moedas**.`].join(" • "),
                 embeds: [createHelperDropEmbed(createCharacterEmbed(result), {
                     reward: helperReward,
                     ownerCount: result.ownerCount,
@@ -126,13 +126,13 @@ module.exports = {
         }
 
         const message = await interaction.editReply({
-            content: headerLines.join("\n"),
+            content: headerBits.join(" • "),
             embeds: [createCharacterEmbed(result)],
             components: [createClaimActionRow(result.character.id)],
         });
 
         return {
-            claimCharacterId: result.character.id,
+            claimCharacter: result.character,
             message,
         };
     },

@@ -91,6 +91,48 @@ async function getOwnersForCharacterIds(characterIds) {
     return ownersByCharacterId;
 }
 
+async function getHaremInsightsForCharacterIds(characterIds) {
+    const wanted = new Set(characterIds.map((characterId) => normalizeCharacterId(characterId)));
+    const insights = Object.fromEntries([...wanted].map((characterId) => [characterId, {
+        ownerCount: 0,
+        favoriteCount: 0,
+        oldestClaimedAt: null,
+    }]));
+    const iterator = keyv.iterator();
+
+    for await (const [key, value] of iterator) {
+        if (!key.startsWith(HAREM_PREFIX)) {
+            continue;
+        }
+
+        const rawHarem = value?.characters ? value : typeof value === "string" ? JSON.parse(value) : null;
+        const { harem } = sanitizeHaremData(rawHarem);
+        if (!harem?.characters?.length) {
+            continue;
+        }
+
+        for (const character of harem.characters) {
+            if (!wanted.has(character.id)) {
+                continue;
+            }
+
+            const current = insights[character.id];
+            current.ownerCount += 1;
+
+            if (harem.favoriteId === character.id) {
+                current.favoriteCount += 1;
+            }
+
+            const claimedAt = character.claimedAt ?? null;
+            if (claimedAt && (!current.oldestClaimedAt || new Date(claimedAt).getTime() < new Date(current.oldestClaimedAt).getTime())) {
+                current.oldestClaimedAt = claimedAt;
+            }
+        }
+    }
+
+    return insights;
+}
+
 async function countOwnersForCharacter(characterId) {
     const normalizedId = normalizeCharacterId(characterId);
     const owners = await getOwnersForCharacterIds([normalizedId]);
@@ -107,6 +149,7 @@ module.exports = {
     addCharacterToHarem,
     countOwnersForCharacter,
     getHarem,
+    getHaremInsightsForCharacterIds,
     getOwnersForCharacterIds,
     isCharacterClaimed,
     removeCharacterFromHarem,

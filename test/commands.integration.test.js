@@ -102,7 +102,7 @@ test("character command returns claim payload on successful drop", async () => {
     assert.equal(interaction.calls.editReply.length, 1);
     assert.match(interaction.calls.editReply[0].content, /@user-2 wished this/);
     assert.match(interaction.calls.editReply[0].content, /Rolls restantes: 9/);
-    assert.equal(result.claimCharacterId, "rias-gremory");
+    assert.equal(result.claimCharacter.id, "rias-gremory");
     assert.equal(result.message.id, "message-1");
 
     restoreWish();
@@ -151,7 +151,7 @@ test("character command can turn an owned roll into a helper drop", async () => 
     const result = await command.execute(interaction);
 
     assert.equal(interaction.calls.editReply.length, 1);
-    assert.match(interaction.calls.editReply[0].content, /Fragmento Safira disponivel/);
+    assert.match(interaction.calls.editReply[0].content, /Fragmento Safira: reaja para coletar/);
     assert.equal(interaction.calls.editReply[0].embeds[0].mock, "helper-embed");
     assert.equal(result.helperDrop.reward, 33);
     assert.equal(result.helperDrop.variant.emoji, "🔷");
@@ -212,4 +212,68 @@ test("harem command supports list and carousel views", async () => {
     assert.equal(carouselResult.haremCarousel.message.id, "message-1");
 
     restoreHarem();
+});
+
+test("adminrank command applies a manual rank adjustment", async () => {
+    const restoreHarem = mockModuleExports("./modules/Harem.js", {
+        buildCharacterId: (name) => name.toLowerCase().replace(/\s+/g, "-"),
+    });
+    const restoreMarket = mockModuleExports("./modules/Market.js", {
+        createAdminRankEmbed: () => ({ mock: "admin-rank-embed" }),
+        findCharacterByName: async () => ({
+            id: "rias-gremory",
+            name: "Rias Gremory",
+        }),
+        setCharacterManualRankAdjustment: async () => ({
+            id: "rias-gremory",
+            name: "Rias Gremory",
+            manualRankAdjustment: 12,
+            rankScore: 88,
+            prestigeScore: 10,
+            claimValue: 123,
+        }),
+        updateCharacterMarketEntry: async () => {},
+    });
+    const restoreSearch = mockModuleExports("./modules/Search.js", {
+        searchCharacters: async () => [],
+    });
+
+    const command = requireFresh("./commands/admin/adminrank.js");
+    const interaction = createFakeInteraction({
+        options: { nome: "Rias Gremory", ajuste: 12 },
+    });
+
+    await command.execute(interaction);
+
+    assert.equal(interaction.calls.reply.length, 1);
+    assert.equal(interaction.calls.reply[0].embeds[0].mock, "admin-rank-embed");
+
+    restoreSearch();
+    restoreMarket();
+    restoreHarem();
+});
+
+test("adminrankhistory command shows recent manual rank changes", async () => {
+    const restoreMarket = mockModuleExports("./modules/Market.js", {
+        createAdminRankHistoryEmbed: () => ({ mock: "admin-rank-history-embed" }),
+        getRankAdjustmentHistory: async () => [{
+            characterName: "Rias Gremory",
+            amount: 12,
+            previousAmount: 0,
+            actorId: "user-1",
+            recordedAt: "2026-03-14T12:00:00.000Z",
+        }],
+    });
+
+    const command = requireFresh("./commands/admin/adminrankhistory.js");
+    const interaction = createFakeInteraction({
+        options: { limite: 5 },
+    });
+
+    await command.execute(interaction);
+
+    assert.equal(interaction.calls.reply.length, 1);
+    assert.equal(interaction.calls.reply[0].embeds[0].mock, "admin-rank-history-embed");
+
+    restoreMarket();
 });

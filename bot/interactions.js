@@ -31,7 +31,7 @@ const {
 const { addCoins } = require("../modules/Market");
 
 function createInteractionManager(client, sessions) {
-    function registerCharacterClaim(message, characterId) {
+    function registerCharacterClaim(message, character) {
         const expiresAt = Date.now() + (CLAIM_DURATION_SECONDS * 1000);
         const timeout = setTimeout(async () => {
             const currentClaim = sessions.characterClaims.get(message.id);
@@ -53,7 +53,8 @@ function createInteractionManager(client, sessions) {
         }, CLAIM_DURATION_SECONDS * 1000);
 
         sessions.characterClaims.set(message.id, {
-            characterId,
+            character,
+            characterId: character.id,
             expiresAt,
             timeout,
             claimedBy: null,
@@ -61,8 +62,8 @@ function createInteractionManager(client, sessions) {
     }
 
     function registerCommandResult(result) {
-        if (result?.claimCharacterId && result?.message) {
-            registerCharacterClaim(result.message, result.claimCharacterId);
+        if (result?.claimCharacter && result?.message) {
+            registerCharacterClaim(result.message, result.claimCharacter);
         }
 
         if (result?.helperDrop?.message && result?.helperDrop?.reward && result?.helperDrop?.variant) {
@@ -234,13 +235,9 @@ function createInteractionManager(client, sessions) {
         }
 
         const embed = interaction.message.embeds[0];
-        const sourceUrl = embed?.url;
-        const imageUrl = embed?.image?.url;
-        const sourceId = characterId.split(":")[0];
-        const sourceTitle = (embed?.fields ?? []).find((field) => field.name === "Doujin")?.value?.replace(/^\[(.*)\]\(.*\)$/, "$1");
-        const characterName = embed?.title;
+        const claimedCharacter = claim.character;
 
-        if (!characterName || !sourceUrl || !imageUrl || !sourceId || !sourceTitle) {
+        if (!claimedCharacter?.name || !claimedCharacter?.sourceUrl || !claimedCharacter?.imageUrl || !claimedCharacter?.sourceId || !claimedCharacter?.sourceTitle) {
             sessions.characterClaims.delete(interaction.message.id);
             await interaction.update({
                 content: null,
@@ -252,11 +249,11 @@ function createInteractionManager(client, sessions) {
 
         const result = await addCharacterToHarem(interaction.user.id, {
             id: characterId,
-            name: characterName,
-            sourceId,
-            sourceTitle,
-            sourceUrl,
-            imageUrl,
+            name: claimedCharacter.name,
+            sourceId: claimedCharacter.sourceId,
+            sourceTitle: claimedCharacter.sourceTitle,
+            sourceUrl: claimedCharacter.sourceUrl,
+            imageUrl: claimedCharacter.imageUrl,
             claimedAt: new Date().toISOString(),
         });
 

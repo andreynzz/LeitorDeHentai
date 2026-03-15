@@ -20,15 +20,17 @@ function createCharacterSearchEmbed(query, results, currentImageIndex = 0, marke
         : topWork?.imageUrl;
     const embed = new EmbedBuilder()
         .setColor(0xe84aa6)
-        .setAuthor({ name: "Resultados IM", iconURL: NHENTAI_ICON, url: "https://nhentai.net/" })
-        .setTitle(`Personagens encontrados para "${query}"`)
-        .setDescription(results.map((result, index) => {
-            const works = result.works.slice(0, 2).map((work) => `[\`${work.id}\` ${work.title}](${work.url})`).join("\n");
-            const extraWorks = result.works.length > 2 ? `\n+${result.works.length - 2} obra(s)` : "";
-            return `\`${index + 1}.\` **${result.name}**\n${works || "_sem obra listada_"}${extraWorks}`;
-        }).join("\n\n"))
+        .setAuthor({ name: "IM Search", iconURL: NHENTAI_ICON, url: "https://nhentai.net/" })
+        .setTitle(topResult.name)
+        .setURL(topWork?.url ?? null)
+        .setDescription([
+            `Pesquisa: **${query}**`,
+            topWork ? `Obra principal: [${topWork.title}](${topWork.url})` : "Obra principal indisponivel",
+            marketCharacter
+                ? `Rank de mercado: **#${marketCharacter.rankGlobal ?? "-"}**${marketCharacter.isInfamous ? " • INFAME" : ""}`
+                : "Rank de mercado: ainda nao ranqueado",
+        ].join("\n"))
         .addFields(
-            { name: "Melhor match", value: topWork ? `[${topResult.name}](${topWork.url})` : topResult.name, inline: false },
             {
                 name: "Fonte das imagens",
                 value: usingCharacterImages
@@ -43,14 +45,12 @@ function createCharacterSearchEmbed(query, results, currentImageIndex = 0, marke
                 value: usingCharacterImages
                     ? (characterImageCarousel.nsfw ? "Imagens NSFW do personagem" : "Imagens gerais do personagem")
                     : "Capas das obras encontradas",
-                inline: false,
+                inline: true,
             },
             {
-                name: "Rank de mercado",
-                value: marketCharacter
-                    ? `#${marketCharacter.rankGlobal ?? "-"}${marketCharacter.isInfamous ? " • INFAME" : ""}`
-                    : "Personagem ainda nao ranqueado no mercado",
-                inline: false,
+                name: "Alternativas",
+                value: results.slice(1, 4).map((result, index) => `\`${index + 2}.\` ${result.name}`).join("\n") || "Nenhuma alternativa forte.",
+                inline: true,
             },
         )
         .setFooter({
@@ -58,7 +58,7 @@ function createCharacterSearchEmbed(query, results, currentImageIndex = 0, marke
                 ? `${results.length} resultado(s) • imagem ${Math.min(currentImageIndex + 1, characterImageCarousel.imageUrls.length)}/${characterImageCarousel.imageUrls.length}`
                 : topResult.works.length > 0
                     ? `${results.length} resultado(s) • obra ${Math.min(currentImageIndex + 1, topResult.works.length)}/${topResult.works.length}`
-                    : `${results.length} resultado(s) • estilo IM`,
+                    : `${results.length} resultado(s)`,
             iconURL: NHENTAI_ICON,
         })
         .setTimestamp();

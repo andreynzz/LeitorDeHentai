@@ -4,10 +4,10 @@ const { createTopCharactersEmbed, getRankedCharacters } = require("../../modules
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("top")
-        .setDescription("lista os personagens com maior base score")
+        .setDescription("lista os personagens com maior rank de mercado")
         .setDescriptionLocalizations({
-            "pt-BR": "lista os personagens com maior base score",
-            "en-US": "lists the characters with the highest base score",
+            "pt-BR": "lista os personagens com maior rank de mercado",
+            "en-US": "lists the characters with the highest market rank",
         }),
     async execute(interaction) {
         const ranked = await getRankedCharacters();

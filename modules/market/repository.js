@@ -3,6 +3,8 @@ const {
     CHARACTER_REGISTRY_KEY,
     INFAMY_REWARD,
     INFAMY_RESET_MS,
+    MANUAL_RANK_ADJUSTMENT_CAP,
+    MARKET_RANK_HISTORY_KEY,
     MARKET_STATE_KEY,
     USER_COINS_PREFIX,
 } = require("./constants");
@@ -14,6 +16,21 @@ async function getCharacterRegistry() {
 
 async function saveCharacterRegistry(registry) {
     await keyv.set(CHARACTER_REGISTRY_KEY, registry);
+}
+
+async function getRankAdjustmentHistory(limit = 10) {
+    const history = (await keyv.get(MARKET_RANK_HISTORY_KEY)) ?? [];
+    return history.slice(0, limit);
+}
+
+async function appendRankAdjustmentHistory(entry) {
+    const history = (await keyv.get(MARKET_RANK_HISTORY_KEY)) ?? [];
+    const next = [
+        entry,
+        ...history,
+    ].slice(0, 50);
+    await keyv.set(MARKET_RANK_HISTORY_KEY, next);
+    return next;
 }
 
 async function getMarketState() {
@@ -57,7 +74,9 @@ async function setCoins(userId, amount) {
 
 async function getRankedCharacters() {
     const registry = await getCharacterRegistry();
-    return sortCharactersByRank(registry).map((character, index) => ({
+    const { getHaremInsightsForCharacterIds } = require("../Harem");
+    const insightsByCharacterId = await getHaremInsightsForCharacterIds(Object.keys(registry));
+    return sortCharactersByRank(registry, insightsByCharacterId).map((character, index) => ({
         ...character,
         rankGlobal: index + 1,
     }));
@@ -105,6 +124,33 @@ async function updateCharacterMarketEntry(entry) {
     registry[next.id] = next;
     await saveCharacterRegistry(registry);
     return next;
+}
+
+async function setCharacterManualRankAdjustment(characterId, amount, actor = null) {
+    const registry = await getCharacterRegistry();
+    const current = registry[characterId];
+    if (!current) {
+        return null;
+    }
+
+    const clampedAmount = Math.max(-MANUAL_RANK_ADJUSTMENT_CAP, Math.min(MANUAL_RANK_ADJUSTMENT_CAP, amount));
+    const next = {
+        ...current,
+        manualRankAdjustment: clampedAmount,
+    };
+
+    registry[characterId] = next;
+    await saveCharacterRegistry(registry);
+    await appendRankAdjustmentHistory({
+        actorId: actor?.id ?? null,
+        actorName: actor?.username ?? null,
+        amount: clampedAmount,
+        characterId,
+        characterName: next.name,
+        previousAmount: current.manualRankAdjustment ?? 0,
+        recordedAt: new Date().toISOString(),
+    });
+    return ensureCharacterDefaults(next);
 }
 
 async function registerCharacterFromDrop(result) {
@@ -208,12 +254,14 @@ module.exports = {
     getCoins,
     getCurrentInfamyBoard,
     getMarketState,
+    getRankAdjustmentHistory,
     getRankedCharacters,
     incrementWeeklyDivorces,
     processInfamyReset,
     registerCharacterFromDrop,
     saveCharacterRegistry,
     saveMarketState,
+    setCharacterManualRankAdjustment,
     setCoins,
     updateCharacterMarketEntry,
 };
