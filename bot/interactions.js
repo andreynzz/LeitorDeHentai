@@ -26,7 +26,6 @@ const {
     createHelperClaimedEmbed,
     createHelperExpiredEmbed,
     HELPER_DROP_DURATION_SECONDS,
-    HELPER_REACTION_EMOJI,
     recordHelperCollection,
 } = require("../modules/Helper");
 const { addCoins } = require("../modules/Market");
@@ -66,8 +65,8 @@ function createInteractionManager(client, sessions) {
             registerCharacterClaim(result.message, result.claimCharacterId);
         }
 
-        if (result?.helperDrop?.message && result?.helperDrop?.reward) {
-            registerHelperDrop(result.helperDrop.message, result.helperDrop.reward);
+        if (result?.helperDrop?.message && result?.helperDrop?.reward && result?.helperDrop?.variant) {
+            registerHelperDrop(result.helperDrop.message, result.helperDrop);
         }
 
         if (result?.haremCarousel?.message && result?.haremCarousel?.ownerId) {
@@ -81,12 +80,13 @@ function createInteractionManager(client, sessions) {
                 ownerId: result.imCarousel.ownerId,
                 query: result.imCarousel.query,
                 results: result.imCarousel.results,
+                marketCharacter: result.imCarousel.marketCharacter,
                 characterImageCarousel: result.imCarousel.characterImageCarousel,
             });
         }
     }
 
-    function registerHelperDrop(message, reward) {
+    function registerHelperDrop(message, helperDrop) {
         const expiresAt = Date.now() + (HELPER_DROP_DURATION_SECONDS * 1000);
         const timeout = setTimeout(async () => {
             const currentDrop = sessions.helperDrops.get(message.id);
@@ -108,11 +108,12 @@ function createInteractionManager(client, sessions) {
         sessions.helperDrops.set(message.id, {
             claimedBy: null,
             expiresAt,
-            reward,
+            reward: helperDrop.reward,
             timeout,
+            variant: helperDrop.variant,
         });
 
-        message.react(HELPER_REACTION_EMOJI).catch((error) => {
+        message.react(helperDrop.variant.emoji).catch((error) => {
             console.error("Failed to react to helper drop message:", error);
         });
     }
@@ -167,6 +168,7 @@ function createInteractionManager(client, sessions) {
                 session.query,
                 session.results,
                 safeIndex,
+                session.marketCharacter,
                 session.characterImageCarousel,
                 imageAttachment?.name ?? null,
             )],
@@ -276,7 +278,7 @@ function createInteractionManager(client, sessions) {
     }
 
     async function handleHelperReaction(reaction, user) {
-        if (user.bot || reaction.emoji.name !== HELPER_REACTION_EMOJI) {
+        if (user.bot) {
             return false;
         }
 
@@ -290,6 +292,10 @@ function createInteractionManager(client, sessions) {
 
         const helperDrop = sessions.helperDrops.get(reaction.message.id);
         if (!helperDrop) {
+            return false;
+        }
+
+        if (reaction.emoji.name !== helperDrop.variant.emoji) {
             return false;
         }
 
@@ -319,6 +325,7 @@ function createInteractionManager(client, sessions) {
                 user,
                 reward: helperDrop.reward,
                 balance,
+                variant: helperDrop.variant,
             })],
         });
 

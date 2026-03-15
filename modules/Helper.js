@@ -1,8 +1,8 @@
 const {
     HELPER_DROP_DURATION_SECONDS,
-    HELPER_REACTION_EMOJI,
+    HELPER_VARIANTS,
 } = require("./helper/constants");
-const { calculateHelperReward, shouldSpawnHelper } = require("./helper/service");
+const { calculateHelperReward, rollHelperVariant, shouldSpawnHelper } = require("./helper/service");
 const { getHelperStats, recordHelperCollection } = require("./helper/repository");
 const {
     createHelperClaimedEmbed,
@@ -19,7 +19,8 @@ module.exports = {
     createHelperStatusEmbed,
     getHelperStats,
     HELPER_DROP_DURATION_SECONDS,
-    HELPER_REACTION_EMOJI,
+    HELPER_VARIANTS,
     recordHelperCollection,
+    rollHelperVariant,
     shouldSpawnHelper,
 };

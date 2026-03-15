@@ -11,6 +11,7 @@ const {
 const {
     calculateHelperReward,
     createHelperDropEmbed,
+    rollHelperVariant,
     shouldSpawnHelper,
 } = require("../../modules/Helper");
 const { consumeRoll, createRollLimitEmbed, createRollStatusText } = require("../../modules/Rolls");
@@ -64,6 +65,7 @@ module.exports = {
 
         let result = null;
         let helperReward = null;
+        let helperVariant = null;
 
         for (let attempt = 0; attempt < 15; attempt += 1) {
             const candidate = await getRandomCharacter(tag, { includeClaimed: true });
@@ -83,8 +85,9 @@ module.exports = {
             }
 
             const marketCharacter = await getCharacterById(candidate.character.id);
+            helperVariant = rollHelperVariant();
             result = candidate;
-            helperReward = calculateHelperReward(marketCharacter ?? candidate.character, candidate.ownerCount);
+            helperReward = calculateHelperReward(marketCharacter ?? candidate.character, candidate.ownerCount, helperVariant);
             break;
         }
 
@@ -103,10 +106,11 @@ module.exports = {
 
         if (helperReward !== null) {
             const message = await interaction.editReply({
-                content: [...headerLines, `💎 Helper disponivel: reaja na mensagem para coletar **${helperReward} moedas**.`].join("\n"),
+                content: [...headerLines, `${helperVariant.emoji} ${helperVariant.name} disponivel: reaja na mensagem para coletar **${helperReward} moedas**.`].join("\n"),
                 embeds: [createHelperDropEmbed(createCharacterEmbed(result), {
                     reward: helperReward,
                     ownerCount: result.ownerCount,
+                    variant: helperVariant,
                 })],
                 components: [],
             });
@@ -116,6 +120,7 @@ module.exports = {
                     characterId: result.character.id,
                     message,
                     reward: helperReward,
+                    variant: helperVariant,
                 },
             };
         }

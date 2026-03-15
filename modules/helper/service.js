@@ -2,6 +2,7 @@ const {
     HELPER_DROP_CHANCE,
     HELPER_MAX_REWARD,
     HELPER_MIN_REWARD,
+    HELPER_VARIANTS,
 } = require("./constants");
 
 function createEmptyHelperStats() {
@@ -23,11 +24,23 @@ function shouldSpawnHelper(randomValue = Math.random()) {
     return randomValue < HELPER_DROP_CHANCE;
 }
 
-function calculateHelperReward(character = {}, ownerCount = 1) {
+function rollHelperVariant(randomValue = Math.random()) {
+    let threshold = 0;
+    for (const variant of HELPER_VARIANTS) {
+        threshold += variant.weight;
+        if (randomValue <= threshold) {
+            return variant;
+        }
+    }
+
+    return HELPER_VARIANTS[HELPER_VARIANTS.length - 1];
+}
+
+function calculateHelperReward(character = {}, ownerCount = 1, variant = HELPER_VARIANTS[1]) {
     const claimValue = Number(character.claimValue) || 0;
     const rarityMultiplier = Number(character.rarityMultiplier) || 1;
     const safeOwnerCount = Math.max(1, ownerCount);
-    const reward = Math.round((claimValue * 0.45) + (rarityMultiplier * 8) + (safeOwnerCount * 6));
+    const reward = Math.round(((claimValue * 0.45) + (rarityMultiplier * 8) + (safeOwnerCount * 6)) * variant.multiplier);
     return Math.max(HELPER_MIN_REWARD, Math.min(HELPER_MAX_REWARD, reward));
 }
 
@@ -44,5 +57,6 @@ module.exports = {
     createEmptyHelperStats,
     formatLastCollectedAt,
     normalizeHelperStats,
+    rollHelperVariant,
     shouldSpawnHelper,
 };

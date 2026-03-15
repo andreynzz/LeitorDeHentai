@@ -1,7 +1,7 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, Colors, EmbedBuilder } = require("discord.js");
 const { IM_CAROUSEL_PREFIX, NHENTAI_ICON } = require("./constants");
 
-function createCharacterSearchEmbed(query, results, currentImageIndex = 0, characterImageCarousel = null, attachmentName = null) {
+function createCharacterSearchEmbed(query, results, currentImageIndex = 0, marketCharacter = null, characterImageCarousel = null, attachmentName = null) {
     if (results.length === 0) {
         return new EmbedBuilder()
             .setColor(Colors.Orange)
@@ -43,6 +43,13 @@ function createCharacterSearchEmbed(query, results, currentImageIndex = 0, chara
                 value: usingCharacterImages
                     ? (characterImageCarousel.nsfw ? "Imagens NSFW do personagem" : "Imagens gerais do personagem")
                     : "Capas das obras encontradas",
+                inline: false,
+            },
+            {
+                name: "Rank de mercado",
+                value: marketCharacter
+                    ? `#${marketCharacter.rankGlobal ?? "-"}${marketCharacter.isInfamous ? " • INFAME" : ""}`
+                    : "Personagem ainda nao ranqueado no mercado",
                 inline: false,
             },
         )

@@ -23,6 +23,44 @@ test("character command blocks character names used as tags", async () => {
     restoreSearch();
 });
 
+test("im command shows market rank for the best match", async () => {
+    const restoreSearch = mockModuleExports("./modules/Search.js", {
+        buildImageAttachment: async () => null,
+        createCharacterSearchCarouselActionRow: () => ({ mock: "im-row" }),
+        createCharacterSearchEmbed: (query, results, currentImageIndex, marketCharacter) => ({
+            mock: "im-embed",
+            query,
+            marketCharacter,
+            results,
+            currentImageIndex,
+        }),
+        getCharacterImageCarousel: async () => null,
+        searchCharacters: async () => [{
+            name: "Rias Gremory",
+            works: [{ id: 1, title: "High School DxD", url: "https://example.com" }],
+        }],
+    });
+    const restoreMarket = mockModuleExports("./modules/Market.js", {
+        findCharacterByName: async () => ({ name: "Rias Gremory", rankGlobal: 7, isInfamous: false }),
+    });
+
+    const command = requireFresh("./commands/search/im.js");
+    const interaction = createFakeInteraction({
+        options: { query: "rias" },
+    });
+
+    const result = await command.execute(interaction);
+
+    assert.equal(interaction.calls.deferReply, 1);
+    assert.equal(interaction.calls.editReply.length, 1);
+    assert.equal(interaction.calls.editReply[0].embeds[0].mock, "im-embed");
+    assert.equal(interaction.calls.editReply[0].embeds[0].marketCharacter.rankGlobal, 7);
+    assert.equal(result.imCarousel.marketCharacter.rankGlobal, 7);
+
+    restoreMarket();
+    restoreSearch();
+});
+
 test("character command returns claim payload on successful drop", async () => {
     const restoreCharacter = mockModuleExports("./modules/Character.js", {
         getRandomCharacter: async () => ({
@@ -40,6 +78,7 @@ test("character command returns claim payload on successful drop", async () => {
     const restoreHelper = mockModuleExports("./modules/Helper.js", {
         calculateHelperReward: () => 20,
         createHelperDropEmbed: () => ({ mock: "helper-embed" }),
+        rollHelperVariant: () => ({ emoji: "🔷", name: "Fragmento Safira" }),
         shouldSpawnHelper: () => false,
     });
     const restoreRolls = mockModuleExports("./modules/Rolls.js", {
@@ -91,6 +130,7 @@ test("character command can turn an owned roll into a helper drop", async () => 
     const restoreHelper = mockModuleExports("./modules/Helper.js", {
         calculateHelperReward: () => 33,
         createHelperDropEmbed: () => ({ mock: "helper-embed" }),
+        rollHelperVariant: () => ({ emoji: "🔷", name: "Fragmento Safira" }),
         shouldSpawnHelper: () => true,
     });
     const restoreRolls = mockModuleExports("./modules/Rolls.js", {
@@ -111,9 +151,10 @@ test("character command can turn an owned roll into a helper drop", async () => 
     const result = await command.execute(interaction);
 
     assert.equal(interaction.calls.editReply.length, 1);
-    assert.match(interaction.calls.editReply[0].content, /Helper disponivel/);
+    assert.match(interaction.calls.editReply[0].content, /Fragmento Safira disponivel/);
     assert.equal(interaction.calls.editReply[0].embeds[0].mock, "helper-embed");
     assert.equal(result.helperDrop.reward, 33);
+    assert.equal(result.helperDrop.variant.emoji, "🔷");
 
     restoreWish();
     restoreSearch();

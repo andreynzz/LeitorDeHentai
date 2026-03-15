@@ -6,6 +6,7 @@ const {
     getCharacterImageCarousel,
     searchCharacters,
 } = require("../../modules/Search");
+const { findCharacterByName } = require("../../modules/Market");
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -31,6 +32,9 @@ module.exports = {
         await interaction.deferReply();
 
         const results = await searchCharacters(query);
+        const marketCharacter = results.length > 0
+            ? await findCharacterByName(results[0].name)
+            : null;
         const characterImageCarousel = results.length > 0
             ? await getCharacterImageCarousel(results[0].name)
             : null;
@@ -44,6 +48,7 @@ module.exports = {
                 query,
                 results,
                 0,
+                marketCharacter,
                 characterImageCarousel,
                 imageAttachment?.name ?? null,
             )],
@@ -61,6 +66,7 @@ module.exports = {
                 ownerId: interaction.user.id,
                 query,
                 results,
+                marketCharacter,
                 characterImageCarousel,
             },
         };
