@@ -176,10 +176,19 @@ test("tu command replies with marriage and roll status embed", async () => {
         getMarriageState: async () => ({ slotKey: "2026-03-14:09" }),
         getCurrentMarriageWindow: () => ({ slotKey: "2026-03-14:09", nextSlotAt: new Date("2026-03-14T15:00:00.000Z").getTime() }),
     });
+    const restoreDoujinMarriage = mockModuleExports("./modules/DoujinMarriage.js", {
+        getDoujinMarriageState: async () => ({ slotKey: "2026-03-14:09" }),
+        getCurrentDoujinMarriageWindow: () => ({ slotKey: "2026-03-14:09", nextSlotAt: new Date("2026-03-14T15:00:00.000Z").getTime() }),
+    });
     const restoreRolls = mockModuleExports("./modules/Rolls.js", {
         MAX_ROLLS: 10,
         getRollState: async () => ({ used: 3, resetAt: new Date("2026-03-14T15:00:00.000Z").getTime() }),
         getCurrentRollWindow: () => ({ resetAt: new Date("2026-03-14T15:00:00.000Z").getTime() }),
+    });
+    const restoreDoujinRolls = mockModuleExports("./modules/DoujinRolls.js", {
+        MAX_DOUJIN_ROLLS: 20,
+        getDoujinRollState: async () => ({ used: 4, resetAt: new Date("2026-03-14T15:00:00.000Z").getTime() }),
+        getCurrentDoujinRollWindow: () => ({ resetAt: new Date("2026-03-14T15:00:00.000Z").getTime() }),
     });
 
     const command = requireFresh("./commands/harem/tu.js");
@@ -191,9 +200,13 @@ test("tu command replies with marriage and roll status embed", async () => {
     const embed = interaction.calls.reply[0].embeds[0].data;
     assert.equal(embed.title, "Seu status");
     assert.match(embed.fields[0].name, /Casamento/);
-    assert.match(embed.fields[1].name, /Rolls/);
+    assert.match(embed.fields[1].name, /Doujin/);
+    assert.match(embed.fields[2].name, /Rolls$/);
+    assert.match(embed.fields[3].name, /Doujin/);
 
+    restoreDoujinRolls();
     restoreRolls();
+    restoreDoujinMarriage();
     restoreMarriage();
 });
 
@@ -247,6 +260,11 @@ test("random command returns a doujin claim payload", async () => {
             },
         }),
     });
+    const restoreDoujinRolls = mockModuleExports("./modules/DoujinRolls.js", {
+        consumeDoujinRoll: async () => ({ allowed: true, remaining: 19, state: { used: 1 } }),
+        createDoujinRollLimitEmbed: () => ({ mock: "doujin-roll-limit-embed" }),
+        createDoujinRollStatusText: (remaining) => `Doujin rolls restantes: ${remaining}`,
+    });
     const restoreClaim = mockModuleExports("./modules/DoujinCollectionClaim.js", {
         createDoujinClaimActionRow: () => ({ mock: "doujin-claim-row" }),
         createRolledDoujinEmbed: () => ({ mock: "rolled-doujin-embed" }),
@@ -259,10 +277,12 @@ test("random command returns a doujin claim payload", async () => {
 
     assert.equal(interaction.calls.reply.length, 1);
     assert.equal(interaction.calls.reply[0].fetchReply, true);
+    assert.match(interaction.calls.reply[0].content, /Doujin rolls restantes: 19/);
     assert.equal(interaction.calls.reply[0].embeds[0].mock, "rolled-doujin-embed");
     assert.equal(result.doujinClaim.doujin.id, 123);
 
     restoreClaim();
+    restoreDoujinRolls();
     restoreDoujin();
 });
 

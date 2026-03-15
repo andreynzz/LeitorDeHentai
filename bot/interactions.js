@@ -31,6 +31,11 @@ const {
     createDoujinClaimResultEmbed,
     createDoujinClaimUnavailableEmbed,
 } = require("../modules/DoujinCollectionClaim");
+const {
+    canUserClaimDoujin,
+    createDoujinMarriageCooldownEmbed,
+    registerDoujinMarriage,
+} = require("../modules/DoujinMarriage");
 const { canUserMarry, createMarriageCooldownEmbed, registerMarriage } = require("../modules/Marriage");
 const {
     buildImageAttachment,
@@ -371,6 +376,13 @@ function createInteractionManager(client, sessions) {
 
     async function handleDoujinClaim(interaction) {
         const doujinId = interaction.customId.slice(CLAIM_DOUJIN_PREFIX.length);
+        const doujinMarriageCheck = await canUserClaimDoujin(interaction.user.id);
+        if (!doujinMarriageCheck.allowed) {
+            await interaction.reply({
+                embeds: [createDoujinMarriageCooldownEmbed(interaction.user, doujinMarriageCheck.nextSlotAt)],
+            });
+            return true;
+        }
 
         if (await isDoujinClaimed(doujinId)) {
             await interaction.reply({
@@ -385,6 +397,9 @@ function createInteractionManager(client, sessions) {
         }
 
         const result = await addDoujinToCollection(interaction.user.id, buildDoujinEntry(claim.doujin));
+        if (result.added) {
+            await registerDoujinMarriage(interaction.user.id, result.doujin);
+        }
         sessions.doujinClaims.delete(interaction.message.id);
 
         await interaction.update({

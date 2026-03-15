@@ -1,6 +1,7 @@
 const { GetDoujin, CreateDoujinEmbed } = require("../modules/Doujin");
 const { KeyvHooks } = require("keyv");
 const { getChannelIdFromWaveKey, isWaveEntry } = require("../modules/Wave");
+const { createWaveChallengeEmbed } = require("../modules/WaveChallenges");
 
 function createWaveManager(client, keyv, sessions) {
     function clearWaveInterval(channelId) {
@@ -31,7 +32,7 @@ function createWaveManager(client, keyv, sessions) {
                 return;
             }
 
-            channel.send({ embeds: [CreateDoujinEmbed(doujin)] });
+            channel.send({ embeds: [createWaveChallengeEmbed(doujin, payload), CreateDoujinEmbed(doujin)] });
         }, payload.time * 1000);
 
         console.log(`Channel ${channelId} ready!`);

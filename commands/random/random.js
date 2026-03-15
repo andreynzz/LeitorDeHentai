@@ -1,5 +1,10 @@
 const { GetDoujin } = require("../../modules/Doujin");
 const {
+    consumeDoujinRoll,
+    createDoujinRollLimitEmbed,
+    createDoujinRollStatusText,
+} = require("../../modules/DoujinRolls");
+const {
     createDoujinClaimActionRow,
     createRolledDoujinEmbed,
 } = require("../../modules/DoujinCollectionClaim");
@@ -26,6 +31,13 @@ module.exports = {
             ),
     async execute(interaction) {
         const tag = interaction.options.getString("tag") ?? "*";
+        const rollResult = await consumeDoujinRoll(interaction.user.id);
+        if (!rollResult.allowed) {
+            await interaction.reply({
+                embeds: [createDoujinRollLimitEmbed(interaction.user, rollResult.state)],
+            });
+            return;
+        }
 
         const chosen = await GetDoujin(tag);
         if (!chosen) {
@@ -34,6 +46,7 @@ module.exports = {
         }
 
         const message = await interaction.reply({
+            content: `🎲 ${createDoujinRollStatusText(rollResult.remaining)}`,
             embeds: [createRolledDoujinEmbed(chosen)],
             components: [createDoujinClaimActionRow(chosen.id)],
             fetchReply: true,
