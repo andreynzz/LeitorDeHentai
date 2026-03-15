@@ -84,7 +84,7 @@ function createCharacterProfileEmbed(character, ownerCount = 0) {
     }
 
     if (character.imageUrl) {
-        embed.setImage(character.imageUrl);
+        embed.setThumbnail(character.imageUrl);
     }
 
     return embed;

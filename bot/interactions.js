@@ -45,7 +45,7 @@ function createInteractionManager(client, sessions) {
                 await message.edit({
                     content: null,
                     embeds: currentEmbed ? [createClaimExpiredEmbed(currentEmbed)] : [],
-                    components: [createDisabledClaimActionRow(characterId)],
+                    components: [createDisabledClaimActionRow(character.id, "Tempo expirado")],
                 });
             } catch (error) {
                 console.error("Failed to expire character claim:", error);
@@ -72,7 +72,8 @@ function createInteractionManager(client, sessions) {
 
         if (result?.haremCarousel?.message && result?.haremCarousel?.ownerId) {
             sessions.haremCarousels.set(result.haremCarousel.message.id, {
-                ownerId: result.haremCarousel.ownerId,
+                targetUser: result.haremCarousel.targetUser,
+                viewerId: result.haremCarousel.ownerId,
             });
         }
 
@@ -83,6 +84,7 @@ function createInteractionManager(client, sessions) {
                 results: result.imCarousel.results,
                 marketCharacter: result.imCarousel.marketCharacter,
                 characterImageCarousel: result.imCarousel.characterImageCarousel,
+                ownerIds: result.imCarousel.ownerIds,
             });
         }
     }
@@ -126,18 +128,18 @@ function createInteractionManager(client, sessions) {
             return true;
         }
 
-        if (session.ownerId !== interaction.user.id) {
+        if (session.viewerId !== interaction.user.id) {
             await interaction.reply({ content: "Apenas quem abriu este harem pode navegar por ele." });
             return true;
         }
 
         const [, , rawIndex] = interaction.customId.split(":");
-        const harem = await getHarem(interaction.user.id);
+        const harem = await getHarem(session.targetUser.id);
         const index = Number.parseInt(rawIndex, 10);
         const safeIndex = Number.isNaN(index) ? 0 : Math.min(Math.max(index, 0), Math.max(harem.characters.length - 1, 0));
 
         await interaction.update({
-            embeds: [createHaremCarouselEmbed(interaction.user, harem, safeIndex)],
+            embeds: [createHaremCarouselEmbed(session.targetUser, harem, safeIndex)],
             components: [createHaremCarouselActionRow(safeIndex, harem.characters.length)],
         });
         return true;
@@ -172,6 +174,7 @@ function createInteractionManager(client, sessions) {
                 session.marketCharacter,
                 session.characterImageCarousel,
                 imageAttachment?.name ?? null,
+                session.ownerIds,
             )],
             components: [createCharacterSearchCarouselActionRow(totalImages, safeIndex)],
             files: imageAttachment ? [imageAttachment] : [],
@@ -195,7 +198,7 @@ function createInteractionManager(client, sessions) {
             await interaction.update({
                 content: null,
                 embeds: currentEmbed ? [createClaimExpiredEmbed(currentEmbed)] : [],
-                components: [createDisabledClaimActionRow(characterId)],
+                components: [createDisabledClaimActionRow(characterId, "Tempo expirado")],
             });
             return null;
         }

@@ -82,6 +82,27 @@ async function resetRolls(userId) {
     };
 }
 
+async function resetAllRolls() {
+    const iterator = keyv.iterator();
+    const freshState = createFreshRollState();
+    let resetCount = 0;
+
+    for await (const [key] of iterator) {
+        if (!key.startsWith(ROLLS_PREFIX)) {
+            continue;
+        }
+
+        await keyv.set(key, freshState);
+        resetCount += 1;
+    }
+
+    return {
+        ...freshState,
+        remaining: MAX_ROLLS,
+        resetCount,
+    };
+}
+
 function getResetInMinutes(resetAt) {
     return Math.max(1, Math.ceil((resetAt - Date.now()) / 60000));
 }
@@ -114,5 +135,6 @@ module.exports = {
     getCurrentRollWindow,
     getRollState,
     normalizeRollState,
+    resetAllRolls,
     resetRolls,
 };

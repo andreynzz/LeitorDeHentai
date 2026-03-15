@@ -1,7 +1,7 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, Colors, EmbedBuilder } = require("discord.js");
 const { IM_CAROUSEL_PREFIX, NHENTAI_ICON } = require("./constants");
 
-function createCharacterSearchEmbed(query, results, currentImageIndex = 0, marketCharacter = null, characterImageCarousel = null, attachmentName = null) {
+function createCharacterSearchEmbed(query, results, currentImageIndex = 0, marketCharacter = null, characterImageCarousel = null, attachmentName = null, ownerIds = []) {
     if (results.length === 0) {
         return new EmbedBuilder()
             .setColor(Colors.Orange)
@@ -29,6 +29,9 @@ function createCharacterSearchEmbed(query, results, currentImageIndex = 0, marke
             marketCharacter
                 ? `Rank de mercado: **#${marketCharacter.rankGlobal ?? "-"}**${marketCharacter.isInfamous ? " • INFAME" : ""}`
                 : "Rank de mercado: ainda nao ranqueado",
+            ownerIds.length > 0
+                ? `Pertence a: ${ownerIds.slice(0, 5).map((ownerId) => `<@${ownerId}>`).join(", ")}${ownerIds.length > 5 ? ` +${ownerIds.length - 5}` : ""}`
+                : "Pertence a: ninguem ainda",
         ].join("\n"))
         .addFields(
             {

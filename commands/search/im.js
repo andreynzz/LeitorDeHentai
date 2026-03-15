@@ -6,6 +6,7 @@ const {
     getCharacterImageCarousel,
     searchCharacters,
 } = require("../../modules/Search");
+const { getOwnersForCharacterIds } = require("../../modules/Harem");
 const { findCharacterByName } = require("../../modules/Market");
 
 module.exports = {
@@ -35,6 +36,9 @@ module.exports = {
         const marketCharacter = results.length > 0
             ? await findCharacterByName(results[0].name)
             : null;
+        const ownerIds = marketCharacter
+            ? (await getOwnersForCharacterIds([marketCharacter.id]))[marketCharacter.id] ?? []
+            : [];
         const characterImageCarousel = results.length > 0
             ? await getCharacterImageCarousel(results[0].name)
             : null;
@@ -51,6 +55,7 @@ module.exports = {
                 marketCharacter,
                 characterImageCarousel,
                 imageAttachment?.name ?? null,
+                ownerIds,
             )],
             components: results.length > 0 ? [createCharacterSearchCarouselActionRow(carouselLength, 0)] : [],
             files: imageAttachment ? [imageAttachment] : [],
@@ -68,6 +73,7 @@ module.exports = {
                 results,
                 marketCharacter,
                 characterImageCarousel,
+                ownerIds,
             },
         };
     },

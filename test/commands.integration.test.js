@@ -27,12 +27,13 @@ test("im command shows market rank for the best match", async () => {
     const restoreSearch = mockModuleExports("./modules/Search.js", {
         buildImageAttachment: async () => null,
         createCharacterSearchCarouselActionRow: () => ({ mock: "im-row" }),
-        createCharacterSearchEmbed: (query, results, currentImageIndex, marketCharacter) => ({
+        createCharacterSearchEmbed: (query, results, currentImageIndex, marketCharacter, characterImageCarousel, attachmentName, ownerIds) => ({
             mock: "im-embed",
             query,
             marketCharacter,
             results,
             currentImageIndex,
+            ownerIds,
         }),
         getCharacterImageCarousel: async () => null,
         searchCharacters: async () => [{
@@ -40,8 +41,11 @@ test("im command shows market rank for the best match", async () => {
             works: [{ id: 1, title: "High School DxD", url: "https://example.com" }],
         }],
     });
+    const restoreHarem = mockModuleExports("./modules/Harem.js", {
+        getOwnersForCharacterIds: async () => ({ "rias-gremory": ["user-2"] }),
+    });
     const restoreMarket = mockModuleExports("./modules/Market.js", {
-        findCharacterByName: async () => ({ name: "Rias Gremory", rankGlobal: 7, isInfamous: false }),
+        findCharacterByName: async () => ({ id: "rias-gremory", name: "Rias Gremory", rankGlobal: 7, isInfamous: false }),
     });
 
     const command = requireFresh("./commands/search/im.js");
@@ -55,9 +59,12 @@ test("im command shows market rank for the best match", async () => {
     assert.equal(interaction.calls.editReply.length, 1);
     assert.equal(interaction.calls.editReply[0].embeds[0].mock, "im-embed");
     assert.equal(interaction.calls.editReply[0].embeds[0].marketCharacter.rankGlobal, 7);
+    assert.deepEqual(interaction.calls.editReply[0].embeds[0].ownerIds, ["user-2"]);
     assert.equal(result.imCarousel.marketCharacter.rankGlobal, 7);
+    assert.deepEqual(result.imCarousel.ownerIds, ["user-2"]);
 
     restoreMarket();
+    restoreHarem();
     restoreSearch();
 });
 
@@ -209,6 +216,7 @@ test("harem command supports list and carousel views", async () => {
     assert.equal(listInteraction.calls.reply[0].embeds[0].mock, "list-embed");
     assert.equal(carouselInteraction.calls.reply[0].fetchReply, true);
     assert.equal(carouselResult.haremCarousel.ownerId, "user-1");
+    assert.equal(carouselResult.haremCarousel.targetUser.id, "user-1");
     assert.equal(carouselResult.haremCarousel.message.id, "message-1");
 
     restoreHarem();
@@ -276,4 +284,70 @@ test("adminrankhistory command shows recent manual rank changes", async () => {
     assert.equal(interaction.calls.reply[0].embeds[0].mock, "admin-rank-history-embed");
 
     restoreMarket();
+});
+
+test("adminrolls command can reset all tracked users", async () => {
+    const restoreRolls = mockModuleExports("./modules/Rolls.js", {
+        MAX_ROLLS: 10,
+        getRollState: async () => ({ used: 2, resetAt: Date.now() + 60_000 }),
+        resetAllRolls: async () => ({
+            used: 0,
+            remaining: 10,
+            resetAt: new Date("2026-03-14T15:00:00.000Z").getTime(),
+            resetCount: 3,
+        }),
+        resetRolls: async () => ({ used: 0, resetAt: Date.now() + 60_000 }),
+    });
+
+    const command = requireFresh("./commands/admin/adminrolls.js");
+    const interaction = createFakeInteraction({
+        options: { acao: "reset_all" },
+    });
+
+    await command.execute(interaction);
+
+    assert.equal(interaction.calls.reply.length, 1);
+    assert.equal(interaction.calls.reply[0].embeds[0].data.title, "Rolls resetados para todos");
+    assert.match(interaction.calls.reply[0].embeds[0].data.description, /3/);
+
+    restoreRolls();
+});
+
+test("admindivorce command can force-divorce an entire harem", async () => {
+    const restoreHarem = mockModuleExports("./modules/Harem.js", {
+        getHarem: async () => ({
+            favoriteId: "rias-gremory",
+            characters: [
+                { id: "rias-gremory", name: "Rias Gremory" },
+                { id: "akeno-himejima", name: "Akeno Himejima" },
+            ],
+        }),
+        removeCharacterFromHarem: async (userId, characterId) => ({
+            removed: true,
+            character: {
+                id: characterId,
+                name: characterId === "rias-gremory" ? "Rias Gremory" : "Akeno Himejima",
+            },
+        }),
+    });
+    const restoreMarket = mockModuleExports("./modules/Market.js", {
+        incrementWeeklyDivorces: async () => ({ divorciosSemanais: 1 }),
+    });
+
+    const command = requireFresh("./commands/admin/admindivorce.js");
+    const interaction = createFakeInteraction({
+        options: {
+            usuario: { id: "user-2", username: "Akumu", toString: () => "<@user-2>" },
+            acao: "all",
+        },
+    });
+
+    await command.execute(interaction);
+
+    assert.equal(interaction.calls.reply.length, 1);
+    assert.equal(interaction.calls.reply[0].embeds[0].data.title, "Harem divorciado");
+    assert.match(interaction.calls.reply[0].embeds[0].data.description, /2/);
+
+    restoreMarket();
+    restoreHarem();
 });
